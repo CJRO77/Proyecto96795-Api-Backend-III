@@ -41,11 +41,11 @@ ShipNow utiliza una arquitectura de tres capas:
                       │
                       ▼
                   MongoDB
+
 ```
 
 ## 📂 Estructura del proyecto
 
-```
 ShipNow/
 │
 ├── src/
@@ -59,23 +59,35 @@ ShipNow/
 │   │
 │   ├── controllers/
 │   │   ├── products.controller.js
-│   │   └── users.controller.js
+│   │   ├── users.controller.js
+│   │   └── mocks.controller.js
 │   │
 │   ├── services/
 │   │   ├── products.service.js
-│   │   └── users.service.js
+│   │   ├── users.service.js
+│   │   └── mocks.service.js
 │   │
 │   ├── repositories/
 │   │   ├── products.repository.js
-│   │   └── users.repository.js
+│   │   ├── users.repository.js
+│   │   ├── orders.repository.js
+│   │   └── deliveries.repository.js
 │   │
 │   ├── models/
 │   │   ├── product.model.js
-│   │   └── user.model.js
+│   │   ├── user.model.js
+│   │   ├── order.model.js
+│   │   └── delivery.model.js
+│   │
+│   ├── mocks/
+│   │   ├── users.mock.js
+│   │   ├── orders.mock.js
+│   │   └── deliveries.mock.js
 │   │
 │   ├── routes/
 │   │   ├── products.routes.js
-│   │   └── users.routes.js
+│   │   ├── users.routes.js
+│   │   └── mocks.routes.js
 │   │
 │   ├── app.js
 │   └── server.js
@@ -85,7 +97,7 @@ ShipNow/
 ├── package.json
 ├── package-lock.json
 └── README.md
-```
+
 
 ## ⚙️ Configuración del proyecto
 
@@ -143,6 +155,54 @@ ShipNow/
 | PUT | `/:id` | Actualiza un usuario |
 | DELETE | `/:id` | Elimina un usuario |
 
+### Mocking (`/api/mocks`)
+
+Router dedicado a generar datos de prueba, separado de las rutas de negocio reales.
+Los endpoints `GET` no modifican la base de datos: solo generan objetos en memoria para previsualizar su estructura.
+El endpoint `POST /seed` sí inserta datos reales en MongoDB.
+
+Método	Ruta	Descripción
+GET	`/users?qty=10`	Genera qty usuarios falsos (role: CUSTOMER) sin guardarlos
+GET	`/drivers?qty=10`	Genera qty repartidores falsos (role: DRIVER, isAvailable) sin guardarlos
+GET	`/orders?qty=10`	Genera qty pedidos falsos sin guardarlos
+GET	`/deliveries?qty=10`	Genera qty entregas falsas sin guardarlos
+POST	`/seed?qty=10&entity=users`	Genera e inserta qty registros reales en MongoDB
+
+Parámetros de `POST /seed:`
+
+- qty (opcional, default 10): cantidad a generar. Debe ser un entero entre 1 y 100.
+- entity (opcional, default users): qué se genera. Valores válidos: users, drivers, orders, deliveries.
+
+Generación en cascada: los pedidos necesitan un usuario real (customer) y las entregas necesitan un pedido real (order) y, opcionalmente, un repartidor (driver).
+Si pedís `POST /seed?entity=orders o ?entity=deliveries` y todavía no hay usuarios/pedidos/repartidores cargados en la base, el sistema los genera automáticamente
+antes de crear lo que pediste, para no romper la relación. Por ejemplo, pedir 5 entregas en una base vacía puede terminar generando también 3 usuarios, 3 pedidos
+y 2 repartidores como paso previo — vas a ver esto reflejado en la consola del servidor con mensajes como [mocks] No había pedidos, se generaron 3 automáticamente.
+
+Validaciones: qty debe ser un entero mayor a 0 y menor o igual a 100 (devuelve 400 si no); entity debe ser uno de los cuatro valores válidos
+(devuelve 400 con el listado de valores permitidos si no).
+
+Ejemplos:
+
+# Generar 5 usuarios falsos sin guardarlos (solo para ver la estructura)
+`GET http://localhost:3000/api/mocks/users?qty=5`
+
+# Insertar 10 usuarios reales en MongoDB
+`POST http://localhost:3000/api/mocks/seed?qty=10&entity=users`
+# → { "insertados": 10, "coleccion": "usuarios" }
+
+# Insertar 5 repartidores reales
+`POST http://localhost:3000/api/mocks/seed?qty=5&entity=drivers`
+# → { "insertados": 5, "coleccion": "repartidores" }
+
+# Insertar 8 pedidos reales
+`POST http://localhost:3000/api/mocks/seed?qty=8&entity=orders`
+# → { "insertados": 8, "coleccion": "pedidos" }
+
+# Insertar 5 entregas reales
+`POST http://localhost:3000/api/mocks/seed?qty=5&entity=deliveries`
+# → { "insertados": 5, "coleccion": "entregas" }
+
+
 ## ¿Por qué separar la lógica entre Service y Repository?
 
 La regla que seguí fue: **el Repository solo sabe "buscar y guardar datos";
@@ -183,29 +243,28 @@ si un email ya está registrado).
 - No hay llamadas a `process.env` fuera de `src/config/env.config.js`.
 - Los errores de negocio se propagan con `error.statusCode`, y es el
   Controller quien lo lee para devolver el status HTTP apropiado.
-- Repository y Service fueron probados de punta a punta con Thunder Client,
-  cubriendo el CRUD completo, casos de error (400/404/409) y las reglas de
-  negocio (recalculo automático de `status` según stock).
+- El router /api/mocks es una herramienta de desarrollo, no una funcionalidad
+  de negocio para usuarios finales: está separado de las rutas reales 
+  `(/api/products, /api/users)` a propósito.
+- Repository, Service y el módulo de mocking fueron probados de punta
+  a punta con Thunder Client, incluyendo la cascada completa de dependencias
+  `(usuarios → pedidos → repartidores → entregas)` partiendo de una base vacía.
 
 ## Próximas etapas
 
 El proyecto ShipNow continuará incorporando funcionalidades relacionadas con una empresa de logística, entre ellas:
 
 - Comercios
-- Repartidores
-- Pedidos
-- Estados de entrega
 - Comprobantes
 - Documentos
 - Autenticación
 - Autorización
-- Testing
-- Mocks
+- Testing automatizado (unit tests con mocks de las capas)
 - Seguridad
 - Escalabilidad
 
 ## 👨‍💻 Autor
 
-Carlos Jonathan Rodriguez
+`Carlos Jonathan Rodriguez Osorio`
 
 Proyecto desarrollado como parte del aprendizaje de Programación Backend III — Comisión #96795 — Coderhouse.

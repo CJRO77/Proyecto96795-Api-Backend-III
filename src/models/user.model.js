@@ -16,23 +16,26 @@ const userSchema = new mongoose.Schema({
     },
 
     email: {
-
         type: String,
         required: true,
         unique: true
     },
-    
+
     password: {
         type: String,
         required: true
     },
 
     role: {
-    type: String,
-    enum: Object.values(USER_ROLES),
-    default: USER_ROLES.USER
-}
+        type: String,
+        enum: Object.values(USER_ROLES),
+        default: USER_ROLES.USER
+    },
 
+    isAvailable: {
+        type: Boolean,
+        default: true
+    }
 
 });
 

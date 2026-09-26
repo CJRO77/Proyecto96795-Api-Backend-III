@@ -4,8 +4,8 @@ import UserModel from "../models/user.model.js";
 
 export const usersRepository = {
 
-    getAll: async () => {
-        return await UserModel.find();
+    getAll: async (filters = {}) => {
+        return await UserModel.find(filters);
     },
 
     getById: async (id) => {
@@ -14,6 +14,10 @@ export const usersRepository = {
 
     getByEmail: async (email) => {
         return await UserModel.findOne({ email });
+    },
+
+    insertMany: async (usersData) => {
+        return await UserModel.insertMany(usersData);
     },
 
     create: async (userData) => {
