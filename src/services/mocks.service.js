@@ -43,7 +43,7 @@ const hashUsers = async (users) => {
 
 export const mocksService = {
 
-    // ---------- GET: datos simulados, sin guardar ----------
+    // GET /mock: genera datos simulados sin persistir
 
     getMockUsers: (qty, role = USER_ROLES.CUSTOMER) => {
         const validQty = validateQty(qty);
@@ -65,7 +65,7 @@ export const mocksService = {
         return generateMockDeliveries(validQty);
     },
 
-    // ---------- POST /seed: genera e inserta en MongoDB ----------
+   // POST /mock/seed: genera y persiste datos simulados en la base de datos
 
     seedUsers: async (qty, role = USER_ROLES.CUSTOMER) => {
         const validQty = validateQty(qty);
@@ -85,10 +85,8 @@ export const mocksService = {
         return inserted.length;
     },
 
-    /**
-     * Si no hay ningún customer en la base, generamos algunos automáticamente
-     * antes de crear los pedidos (para respetar la relación pedido ↔ usuario).
-     */
+   // Genera y persiste pedidos simulados en la base de datos
+
     seedOrders: async (qty) => {
         const validQty = validateQty(qty);
 
@@ -107,10 +105,8 @@ export const mocksService = {
         return inserted.length;
     },
 
-    /**
-     * Genera en cascada lo que falte: primero pedidos (que a su vez pueden
-     * generar customers), después repartidores.
-     */
+    // Si no hay ningún pedido o repartidor en la base, generamos algunos automáticamente|
+    
     seedDeliveries: async (qty) => {
         const validQty = validateQty(qty);
 

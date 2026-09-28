@@ -1,7 +1,29 @@
 import { productsRepository } from "../repositories/products.repository.js";
 import { PRODUCT_STATUS } from "../constants/index.js";
+import { CustomError } from "../errors/CustomError.js";
 
-// servicio de productos
+// Servicio de productos: lógica de negocio y validación de datos
+
+const validateProductData = (productData, { partial = false } = {}) => {
+    const { name, description, price, stock } = productData;
+
+    if (!partial) {
+        if (!name || !description || price === undefined || stock === undefined) {
+            throw new CustomError(
+                "VALIDATION_ERROR",
+                "name, description, price y stock son obligatorios"
+            );
+        }
+    }
+
+    if (price !== undefined && price < 0) {
+        throw new CustomError("VALIDATION_ERROR", "price no puede ser negativo");
+    }
+
+    if (stock !== undefined && stock < 0) {
+        throw new CustomError("VALIDATION_ERROR", "stock no puede ser negativo");
+    }
+};
 
 export const productsService = {
 
@@ -13,36 +35,26 @@ export const productsService = {
         const product = await productsRepository.getById(id);
 
         if (!product) {
-            const error = new Error("Producto no encontrado");
-            error.statusCode = 404;
-            throw error;
+            throw new CustomError("PRODUCT_NOT_FOUND", `id: ${id}`);
         }
 
         return product;
     },
 
     createProduct: async (productData) => {
-        const { name, price, stock } = productData;
+        validateProductData(productData);
 
-        if (!name || price === undefined || stock === undefined) {
-            const error = new Error("name, price y stock son obligatorios");
-            error.statusCode = 400;
-            throw error;
-        }
-
-        if (price < 0 || stock < 0) {
-            const error = new Error("price y stock no pueden ser negativos");
-            error.statusCode = 400;
-            throw error;
-        }
-
-        productData.status = stock === 0 ? PRODUCT_STATUS.OUT_OF_STOCK : PRODUCT_STATUS.AVAILABLE;
+        productData.status = productData.stock === 0
+            ? PRODUCT_STATUS.OUT_OF_STOCK
+            : PRODUCT_STATUS.AVAILABLE;
 
         return await productsRepository.create(productData);
     },
 
     updateProduct: async (id, updateData) => {
-        await productsService.getProductById(id); 
+        await productsService.getProductById(id);
+
+        validateProductData(updateData, { partial: true });
 
         if (updateData.stock !== undefined) {
             updateData.status = updateData.stock === 0
@@ -54,7 +66,7 @@ export const productsService = {
     },
 
     deleteProduct: async (id) => {
-        await productsService.getProductById(id); 
+        await productsService.getProductById(id);
 
         return await productsRepository.delete(id);
     }

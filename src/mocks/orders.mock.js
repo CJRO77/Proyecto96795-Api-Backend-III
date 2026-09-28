@@ -10,12 +10,7 @@ const pickRandom = (list) => list[Math.floor(Math.random() * list.length)];
 const pickRandomStatus = () => pickRandom(Object.values(ORDER_STATUS));
 const pickRandomPriority = () => pickRandom(Object.values(DELIVERY_PRIORITY));
 
-/**
- * Genera un pedido falso. `customerId` es obligatorio para reflejar la
- * relación real pedido → usuario. Si no se provee un id real (por ejemplo,
- * en el endpoint GET que solo previsualiza datos sin guardar), se usa un
- * ObjectId válido pero inventado, solo para que la estructura sea consistente.
- */
+// Genera un pedido falso con un `customerId` dado (o uno aleatorio si no se proporciona)
 
 export const generateMockOrder = (customerId = new mongoose.Types.ObjectId()) => {
     const items = Array.from({ length: Math.floor(Math.random() * 3) + 1 }, () => ({
@@ -36,10 +31,7 @@ export const generateMockOrder = (customerId = new mongoose.Types.ObjectId()) =>
     };
 };
 
-/**
- * customerIds: ids reales de usuarios ya existentes en la base.
- * Cada pedido toma uno al azar, para respetar la relación pedido ↔ usuario.
- */
+// Genera un array de pedidos falsos, cada uno con un `customerId` aleatorio
 
 export const generateMockOrders = (qty, customerIds = []) => {
     return Array.from({ length: qty }, () => {

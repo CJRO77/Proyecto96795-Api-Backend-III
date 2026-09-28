@@ -1,99 +1,38 @@
 import { usersService } from "../services/users.service.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 
-// Controladores de usuarios
+// Controlador de usuarios: recibe requests, llama a services y arma responses
 
-export const getUsers = async (req, res) => {
-    try {
-        const users = await usersService.getAllUsers();
+export const getUsers = asyncHandler(async (req, res) => {
+    const users = await usersService.getAllUsers();
+    res.status(200).json({ success: true, data: users });
+});
 
-        res.status(200).json({
-            success: true,
-            data: users
-        });
+export const getUserById = asyncHandler(async (req, res) => {
+    const user = await usersService.getUserById(req.params.id);
+    res.status(200).json({ success: true, data: user });
+});
 
-    } catch (error) {
-        const statusCode = error.statusCode || 500;
-        res.status(statusCode).json({
-            success: false,
-            message: error.message
-        });
-    }
-};
+export const createUser = asyncHandler(async (req, res) => {
+    const newUser = await usersService.createUser(req.body);
+    res.status(201).json({
+        success: true,
+        message: "Usuario creado correctamente",
+        data: newUser
+    });
+});
 
+export const updateUser = asyncHandler(async (req, res) => {
+    const updatedUser = await usersService.updateUser(req.params.id, req.body);
+    res.status(200).json({
+        success: true,
+        message: "Usuario actualizado correctamente",
+        data: updatedUser
+    });
+});
 
-export const getUserById = async (req, res) => {
-    try {
-        const user = await usersService.getUserById(req.params.id);
+export const deleteUser = asyncHandler(async (req, res) => {
+    await usersService.deleteUser(req.params.id);
+    res.status(200).json({ success: true, message: "Usuario eliminado correctamente" });
+});
 
-        res.status(200).json({
-            success: true,
-            data: user
-        });
-
-    } catch (error) {
-        const statusCode = error.statusCode || 500;
-        res.status(statusCode).json({
-            success: false,
-            message: error.message
-        });
-    }
-};
-
-
-export const createUser = async (req, res) => {
-    try {
-        const newUser = await usersService.createUser(req.body);
-
-        res.status(201).json({
-            success: true,
-            message: "Usuario creado correctamente",
-            data: newUser
-        });
-
-    } catch (error) {
-        const statusCode = error.statusCode || 500;
-        res.status(statusCode).json({
-            success: false,
-            message: error.message
-        });
-    }
-};
-
-
-export const updateUser = async (req, res) => {
-    try {
-        const updatedUser = await usersService.updateUser(req.params.id, req.body);
-
-        res.status(200).json({
-            success: true,
-            message: "Usuario actualizado correctamente",
-            data: updatedUser
-        });
-
-    } catch (error) {
-        const statusCode = error.statusCode || 500;
-        res.status(statusCode).json({
-            success: false,
-            message: error.message
-        });
-    }
-};
-
-
-export const deleteUser = async (req, res) => {
-    try {
-        await usersService.deleteUser(req.params.id);
-
-        res.status(200).json({
-            success: true,
-            message: "Usuario eliminado correctamente"
-        });
-
-    } catch (error) {
-        const statusCode = error.statusCode || 500;
-        res.status(statusCode).json({
-            success: false,
-            message: error.message
-        });
-    }
-};

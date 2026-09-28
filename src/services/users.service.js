@@ -1,8 +1,9 @@
 import bcrypt from "bcryptjs";
 import { usersRepository } from "../repositories/users.repository.js";
 import { USER_ROLES } from "../constants/index.js";
+import { CustomError } from "../errors/CustomError.js";
 
-// Servicio de usuarios
+// Servicio de usuarios: lógica de negocio y validación de datos
 
 const SALT_ROUNDS = 10;
 
@@ -16,9 +17,7 @@ export const usersService = {
         const user = await usersRepository.getById(id);
 
         if (!user) {
-            const error = new Error("Usuario no encontrado");
-            error.statusCode = 404;
-            throw error;
+            throw new CustomError("USER_NOT_FOUND", `id: ${id}`);
         }
 
         return user;
@@ -28,17 +27,13 @@ export const usersService = {
         const { firstName, lastName, email, password } = userData;
 
         if (!firstName || !lastName || !email || !password) {
-            const error = new Error("firstName, lastName, email y password son obligatorios");
-            error.statusCode = 400;
-            throw error;
+            throw new CustomError("VALIDATION_ERROR", "firstName, lastName, email y password son obligatorios");
         }
 
         const existingUser = await usersRepository.getByEmail(email);
 
         if (existingUser) {
-            const error = new Error("Ya existe un usuario registrado con ese email");
-            error.statusCode = 409;
-            throw error;
+            throw new CustomError("USER_ALREADY_EXISTS", `email: ${email}`);
         }
 
         const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
@@ -59,7 +54,7 @@ export const usersService = {
     },
 
     updateUser: async (id, updateData) => {
-        await usersService.getUserById(id); 
+        await usersService.getUserById(id);
 
         if (updateData.password) {
             updateData.password = await bcrypt.hash(updateData.password, SALT_ROUNDS);
@@ -69,7 +64,7 @@ export const usersService = {
     },
 
     deleteUser: async (id) => {
-        await usersService.getUserById(id); 
+        await usersService.getUserById(id);
 
         return await usersRepository.delete(id);
     }
