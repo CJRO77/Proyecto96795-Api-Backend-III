@@ -13,6 +13,9 @@ app.use(express.json());
 
 app.use("/api/products", productsRouter);
 app.use("/api/users", usersRouter);
+
+// Rutas para generar datos de prueba (mocks)
+
 app.use("/api/mocks", mocksRouter);
 
 // Middleware de manejo de rutas no encontradas y errores globales

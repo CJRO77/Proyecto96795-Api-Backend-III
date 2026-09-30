@@ -9,8 +9,9 @@ import {
 import { generateMockOrders } from "../mocks/orders.mock.js";
 import { generateMockDeliveries } from "../mocks/deliveries.mock.js";
 import { USER_ROLES, MOCK_LIMITS } from "../constants/index.js";
+import { CustomError } from "../errors/CustomError.js";
 
-// Servicio de mocks: generación de datos simulados y persistencia en MongoDB
+// Mock data generation service
 
 const SALT_ROUNDS = 10;
 
@@ -18,15 +19,11 @@ const validateQty = (qty) => {
     const parsedQty = Number(qty);
 
     if (!Number.isInteger(parsedQty) || parsedQty <= 0) {
-        const error = new Error("qty debe ser un número entero mayor a 0");
-        error.statusCode = 400;
-        throw error;
+        throw new CustomError("INVALID_MOCK_AMOUNT", `qty recibido: "${qty}"`);
     }
 
     if (parsedQty > MOCK_LIMITS.MAX_ITEMS) {
-        const error = new Error(`qty no puede superar ${MOCK_LIMITS.MAX_ITEMS}`);
-        error.statusCode = 400;
-        throw error;
+        throw new CustomError("INVALID_MOCK_AMOUNT", `qty no puede superar ${MOCK_LIMITS.MAX_ITEMS} (recibido: ${qty})`);
     }
 
     return parsedQty;
@@ -41,9 +38,15 @@ const hashUsers = async (users) => {
     );
 };
 
-export const mocksService = {
+const insertOrThrow = async (insertFn) => {
+    try {
+        return await insertFn();
+    } catch (error) {
+        throw new CustomError("MOCK_GENERATION_ERROR", error.message);
+    }
+};
 
-    // GET /mock: genera datos simulados sin persistir
+export const mocksService = {
 
     getMockUsers: (qty, role = USER_ROLES.CUSTOMER) => {
         const validQty = validateQty(qty);
@@ -65,14 +68,12 @@ export const mocksService = {
         return generateMockDeliveries(validQty);
     },
 
-   // POST /mock/seed: genera y persiste datos simulados en la base de datos
-
     seedUsers: async (qty, role = USER_ROLES.CUSTOMER) => {
         const validQty = validateQty(qty);
         const mockUsers = generateMockUsers(validQty, role);
         const usersWithHashedPasswords = await hashUsers(mockUsers);
 
-        const inserted = await usersRepository.insertMany(usersWithHashedPasswords);
+        const inserted = await insertOrThrow(() => usersRepository.insertMany(usersWithHashedPasswords));
         return inserted.length;
     },
 
@@ -81,11 +82,9 @@ export const mocksService = {
         const mockDrivers = generateMockDrivers(validQty);
         const driversWithHashedPasswords = await hashUsers(mockDrivers);
 
-        const inserted = await usersRepository.insertMany(driversWithHashedPasswords);
+        const inserted = await insertOrThrow(() => usersRepository.insertMany(driversWithHashedPasswords));
         return inserted.length;
     },
-
-   // Genera y persiste pedidos simulados en la base de datos
 
     seedOrders: async (qty) => {
         const validQty = validateQty(qty);
@@ -93,42 +92,37 @@ export const mocksService = {
         let customers = await usersRepository.getAll({ role: USER_ROLES.CUSTOMER });
 
         if (customers.length === 0) {
-            const seededCount = await mocksService.seedUsers(3, USER_ROLES.CUSTOMER);
+            await mocksService.seedUsers(3, USER_ROLES.CUSTOMER);
             customers = await usersRepository.getAll({ role: USER_ROLES.CUSTOMER });
-            console.log(`[mocks] No había customers, se generaron ${seededCount} automáticamente`);
         }
 
         const customerIds = customers.map((customer) => customer._id);
         const mockOrders = generateMockOrders(validQty, customerIds);
 
-        const inserted = await ordersRepository.insertMany(mockOrders);
+        const inserted = await insertOrThrow(() => ordersRepository.insertMany(mockOrders));
         return inserted.length;
     },
 
-    // Si no hay ningún pedido o repartidor en la base, generamos algunos automáticamente|
-    
     seedDeliveries: async (qty) => {
         const validQty = validateQty(qty);
 
         let orders = await ordersRepository.getAll();
         if (orders.length === 0) {
-            const seededCount = await mocksService.seedOrders(3);
+            await mocksService.seedOrders(3);
             orders = await ordersRepository.getAll();
-            console.log(`[mocks] No había pedidos, se generaron ${seededCount} automáticamente`);
         }
 
         let drivers = await usersRepository.getAll({ role: USER_ROLES.DRIVER });
         if (drivers.length === 0) {
-            const seededCount = await mocksService.seedDrivers(2);
+            await mocksService.seedDrivers(2);
             drivers = await usersRepository.getAll({ role: USER_ROLES.DRIVER });
-            console.log(`[mocks] No había repartidores, se generaron ${seededCount} automáticamente`);
         }
 
         const orderIds = orders.map((order) => order._id);
         const driverIds = drivers.map((driver) => driver._id);
         const mockDeliveries = generateMockDeliveries(validQty, orderIds, driverIds);
 
-        const inserted = await deliveriesRepository.insertMany(mockDeliveries);
+        const inserted = await insertOrThrow(() => deliveriesRepository.insertMany(mockDeliveries));
         return inserted.length;
     }
 };

@@ -2,8 +2,9 @@
 
 API base de **ShipNow**, plataforma orientada a la gestión de operaciones de una empresa de logística.
 El proyecto aplica una **arquitectura profesional por capas** (**Controller → Service → Repository**),
-con validación de variables de entorno al arranque y un diccionario de
-constantes centralizado para roles y estados.
+con validación de variables de entorno al arranque, un diccionario de
+constantes centralizado para roles y estados, un módulo de **mocking** para
+generar datos de prueba, y un sistema **centralizado de manejo de errores**.
 
 ## 🛠️ Tecnologías utilizadas
 
@@ -12,6 +13,7 @@ constantes centralizado para roles y estados.
 - **MongoDB**
 - **Mongoose**
 - **dotenv**
+- **bcryptjs**
 - **Nodemon**
 - **JavaScript (ES Modules)**
 
@@ -19,7 +21,7 @@ constantes centralizado para roles y estados.
 
 ## 🏗️ Arquitectura del proyecto
 
-ShipNow utiliza una arquitectura de tres capas:
+ShipNow utiliza una arquitectura de tres capas, con los errores derivados a un middleware global:
 
 ```text
                  HTTP Request
@@ -28,24 +30,24 @@ ShipNow utiliza una arquitectura de tres capas:
                   Routes
                       │
                       ▼
-                 Controller
-                      │
-                      ▼
-                   Service
-                      │
-                      ▼
-                 Repository
-                      │
-                      ▼
-                    Model
+                 Controller ──── throw CustomError ────┐
+                      │                                 │
+                      ▼                                 ▼
+                   Service ──── throw CustomError ──► next(error)
+                      │                                 │
+                      ▼                                 ▼
+                 Repository                    Middleware global de errores
+                      │                                 │
+                      ▼                                 ▼
+                    Model                      Respuesta HTTP uniforme
                       │
                       ▼
                   MongoDB
-
 ```
 
 ## 📂 Estructura del proyecto
 
+```
 ShipNow/
 │
 ├── src/
@@ -56,6 +58,17 @@ ShipNow/
 │   │
 │   ├── constants/
 │   │   └── index.js
+│   │
+│   ├── errors/
+│   │   ├── errorDictionary.js
+│   │   └── CustomError.js
+│   │
+│   ├── middlewares/
+│   │   ├── errorHandler.js
+│   │   └── notFoundHandler.js
+│   │
+│   ├── utils/
+│   │   └── asyncHandler.js
 │   │
 │   ├── controllers/
 │   │   ├── products.controller.js
@@ -97,7 +110,7 @@ ShipNow/
 ├── package.json
 ├── package-lock.json
 └── README.md
-
+```
 
 ## ⚙️ Configuración del proyecto
 
@@ -142,8 +155,8 @@ ShipNow/
 |---|---|---|
 | GET | `/` | Lista productos disponibles (`status: AVAILABLE`) |
 | GET | `/:id` | Obtiene un producto por id |
-| POST | `/` | Crea un producto (valida `name`, `price`, `stock`) |
-| PUT | `/:id` | Actualiza un producto (recalcula `status` si cambia el stock) |
+| POST | `/` | Crea un producto (valida `name`, `description`, `price`, `stock`) |
+| PUT | `/:id` | Actualiza un producto (misma validación que POST, campos opcionales) |
 | DELETE | `/:id` | Elimina un producto |
 
 ### Usuarios (`/api/users`)
@@ -157,51 +170,161 @@ ShipNow/
 
 ### Mocking (`/api/mocks`)
 
-Router dedicado a generar datos de prueba, separado de las rutas de negocio reales.
-Los endpoints `GET` no modifican la base de datos: solo generan objetos en memoria para previsualizar su estructura.
-El endpoint `POST /seed` sí inserta datos reales en MongoDB.
+Router dedicado a generar datos de prueba. Los `GET` no modifican la base;
+`POST /seed` sí inserta datos reales en MongoDB.
 
-Método	Ruta	Descripción
-GET	`/users?qty=10`	Genera qty usuarios falsos (role: CUSTOMER) sin guardarlos
-GET	`/drivers?qty=10`	Genera qty repartidores falsos (role: DRIVER, isAvailable) sin guardarlos
-GET	`/orders?qty=10`	Genera qty pedidos falsos sin guardarlos
-GET	`/deliveries?qty=10`	Genera qty entregas falsas sin guardarlos
-POST	`/seed?qty=10&entity=users`	Genera e inserta qty registros reales en MongoDB
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/users?qty=10` | Genera `qty` usuarios falsos (`role: CUSTOMER`) sin guardarlos |
+| GET | `/drivers?qty=10` | Genera `qty` repartidores falsos (`role: DRIVER`) sin guardarlos |
+| GET | `/orders?qty=10` | Genera `qty` pedidos falsos sin guardarlos |
+| GET | `/deliveries?qty=10` | Genera `qty` entregas falsas sin guardarlos |
+| POST | `/seed?qty=10&entity=users` | Genera e **inserta** `qty` registros reales (`entity`: `users`, `drivers`, `orders` o `deliveries`) |
 
-Parámetros de `POST /seed:`
+La generación en cascada sigue vigente: si pedís `orders` o `deliveries` sin
+que existan usuarios/pedidos/repartidores previos, el sistema los genera
+automáticamente antes de crear lo pedido.
 
-- qty (opcional, default 10): cantidad a generar. Debe ser un entero entre 1 y 100.
-- entity (opcional, default users): qué se genera. Valores válidos: users, drivers, orders, deliveries.
+## 🚨 Manejo de errores
 
-Generación en cascada: los pedidos necesitan un usuario real (customer) y las entregas necesitan un pedido real (order) y, opcionalmente, un repartidor (driver).
-Si pedís `POST /seed?entity=orders o ?entity=deliveries` y todavía no hay usuarios/pedidos/repartidores cargados en la base, el sistema los genera automáticamente
-antes de crear lo que pediste, para no romper la relación. Por ejemplo, pedir 5 entregas en una base vacía puede terminar generando también 3 usuarios, 3 pedidos
-y 2 repartidores como paso previo — vas a ver esto reflejado en la consola del servidor con mensajes como [mocks] No había pedidos, se generaron 3 automáticamente.
+Todos los errores esperados de la API pasan por una capa centralizada, en
+vez de responderse de forma aislada en cada ruta o controller.
 
-Validaciones: qty debe ser un entero mayor a 0 y menor o igual a 100 (devuelve 400 si no); entity debe ser uno de los cuatro valores válidos
-(devuelve 400 con el listado de valores permitidos si no).
+### Cómo viaja un error
 
-Ejemplos:
+```
+Service detecta el problema
+        ↓
+throw new CustomError("CODIGO_DE_ERROR", detalle_opcional)
+        ↓
+Controller: catch (error) { next(error) }   ← con asyncHandler, esto es automático
+        ↓
+Middleware global de errores (src/middlewares/errorHandler.js)
+        ↓
+Respuesta HTTP uniforme
+```
 
-# Generar 5 usuarios falsos sin guardarlos (solo para ver la estructura)
-`GET http://localhost:3000/api/mocks/users?qty=5`
+Ningún Controller ni Service arma una respuesta HTTP de error directamente.
+Todos derivan al middleware global, que es el único lugar que decide el
+status code y el formato final de la respuesta.
 
-# Insertar 10 usuarios reales en MongoDB
-`POST http://localhost:3000/api/mocks/seed?qty=10&entity=users`
-# → { "insertados": 10, "coleccion": "usuarios" }
+### Estructura de respuesta
 
-# Insertar 5 repartidores reales
-`POST http://localhost:3000/api/mocks/seed?qty=5&entity=drivers`
-# → { "insertados": 5, "coleccion": "repartidores" }
+Todo error esperado responde con esta forma:
 
-# Insertar 8 pedidos reales
-`POST http://localhost:3000/api/mocks/seed?qty=8&entity=orders`
-# → { "insertados": 8, "coleccion": "pedidos" }
+```json
+{
+    "status": "error",
+    "error": "USER_NOT_FOUND",
+    "message": "El usuario solicitado no existe"
+}
+```
 
-# Insertar 5 entregas reales
-`POST http://localhost:3000/api/mocks/seed?qty=5&entity=deliveries`
-# → { "insertados": 5, "coleccion": "entregas" }
+En modo `development` (`NODE_ENV=development`), se agrega un campo `details`
+opcional con información adicional para debugging:
 
+```json
+{
+    "status": "error",
+    "error": "VALIDATION_ERROR",
+    "message": "Los datos enviados no son válidos",
+    "details": "price no puede ser negativo"
+}
+```
+
+En `production`, el campo `details` no se incluye, para no exponer
+información interna del servidor.
+
+Un error **inesperado** (un bug, una falla de MongoDB no contemplada, etc.)
+siempre responde `500` con el código `INTERNAL_SERVER_ERROR`, sin exponer el
+mensaje ni el stack trace original del error técnico — ese error sí queda
+registrado en la consola del servidor con `console.error`, para poder
+investigarlo, pero nunca se lo mostramos tal cual al cliente.
+
+### Diccionario de errores (`src/errors/errorDictionary.js`)
+
+| Código | Status HTTP | Cuándo ocurre |
+|---|---|---|
+| `USER_NOT_FOUND` | 404 | Se busca/edita/borra un usuario por un id que no existe |
+| `USER_ALREADY_EXISTS` | 409 | Se intenta registrar un usuario con un email ya usado |
+| `PRODUCT_NOT_FOUND` | 404 | Se busca/edita/borra un producto por un id que no existe |
+| `VALIDATION_ERROR` | 400 | Faltan campos obligatorios, o vienen con valores inválidos (ej. `price`/`stock` negativos) |
+| `INVALID_MOCK_AMOUNT` | 400 | `qty` no es un entero positivo, o supera el máximo permitido (100) |
+| `INVALID_MOCK_ENTITY` | 400 | `entity` en `POST /api/mocks/seed` no es `users`, `drivers`, `orders` ni `deliveries` |
+| `MOCK_GENERATION_ERROR` | 500 | Falla la inserción de datos de prueba en MongoDB |
+| `ROUTE_NOT_FOUND` | 404 | Se pide una ruta que no existe en la API |
+| `INTERNAL_SERVER_ERROR` | 500 | Cualquier error inesperado no contemplado |
+
+> El diccionario también incluye algunos códigos pensados para los módulos de
+> Pedidos y Entregas (`ORDER_NOT_FOUND`, `INVALID_ORDER_STATUS`,
+> `ORDER_ALREADY_DELIVERED`, `INVALID_USER_ROLE`, etc.), dejados preparados
+> para cuando esos módulos tengan endpoints reales de negocio. Hoy ningún
+> endpoint los dispara todavía.
+
+### Cómo probar el manejo de errores
+
+Todos estos casos se probaron con Thunder Client:
+
+**Rutas inexistentes**
+```
+GET /api/ruta-que-no-existe
+→ 404 ROUTE_NOT_FOUND
+```
+
+**Productos — validaciones**
+```
+POST /api/products
+Body: { "name": "Test", "price": 100, "stock": 5 }   (sin description)
+→ 400 VALIDATION_ERROR
+
+PUT /api/products/:id
+Body: { "stock": -3 }
+→ 400 VALIDATION_ERROR
+
+PUT /api/products/:id
+Body: { "price": -50 }
+→ 400 VALIDATION_ERROR
+
+GET /api/products/507f1f77bcf86cd799439011   (id válido pero inexistente)
+→ 404 PRODUCT_NOT_FOUND
+```
+
+**Usuarios**
+```
+POST /api/users
+Body: { "firstName": "Ana" }   (incompleto)
+→ 400 VALIDATION_ERROR
+
+POST /api/users   (con el mismo email dos veces)
+→ 409 USER_ALREADY_EXISTS
+
+GET /api/users/507f1f77bcf86cd799439011
+→ 404 USER_NOT_FOUND
+```
+
+**Mocks — cantidad inválida**
+```
+GET /api/mocks/users?qty=abc
+GET /api/mocks/users?qty=-5
+GET /api/mocks/users?qty=0
+GET /api/mocks/users?qty=500
+→ los cuatro devuelven 400 INVALID_MOCK_AMOUNT
+```
+
+**Mocks — entidad inválida**
+```
+POST /api/mocks/seed?qty=5&entity=vehiculos
+→ 400 INVALID_MOCK_ENTITY
+```
+
+**Casos exitosos (para confirmar que nada se rompió)**
+```
+GET /api/mocks/orders?qty=3
+→ 200
+
+POST /api/mocks/seed?qty=5&entity=deliveries
+→ 201, { "insertados": 5, "coleccion": "entregas" }
+```
 
 ## ¿Por qué separar la lógica entre Service y Repository?
 
@@ -209,62 +332,89 @@ La regla que seguí fue: **el Repository solo sabe "buscar y guardar datos";
 el Service sabe "qué significan esos datos para el negocio"**.
 
 En `productsRepository.getAll` no hay ningún filtro fijo: recibe los
-criterios de búsqueda como parámetro. La decisión de negocio de "el listado
-general solo muestra productos con `status: AVAILABLE`" vive en
-`productsService.getAllProducts`, porque es una regla que puede cambiar según
-el caso de uso (por ejemplo, una vista de administración podría necesitar ver
-también los productos sin stock), y esa decisión no le corresponde al
-Repository.
+criterios de búsqueda como parámetro, y aplica una proyección por defecto
+(excluye `__v`) para no exponer campos internos de Mongoose. La decisión de
+negocio de "el listado general solo muestra productos con
+`status: AVAILABLE`" vive en `productsService.getAllProducts`, porque es una
+regla que puede cambiar según el caso de uso, y esa decisión no le
+corresponde al Repository.
 
-Lo mismo pasa con el cálculo del `status` de un producto: el Repository sabe
-*cómo* guardar o actualizar el documento en MongoDB, pero no sabe *cuándo* un
-producto pasa a estar `OUT_OF_STOCK`. Esa regla vive en el Service
-(`createProduct` y `updateProduct`), tanto al crear un producto como al
-modificarle el stock. Si el día de mañana cambia la lógica de negocio (o
-incluso la base de datos), no hace falta tocar la capa de acceso a datos.
+Lo mismo pasa con el cálculo del `status` de un producto, o con la
+validación de que `price`/`stock` no sean negativos: son reglas de negocio,
+y viven en `productsService` (compartidas entre `createProduct` y
+`updateProduct` a través de una función `validateProductData`, para que
+nunca vuelvan a desalinearse entre sí).
 
-En Usuarios aplica el mismo criterio con los roles: nadie puede
-auto-asignarse el rol `ADMIN` al registrarse, y esa validación vive en
-`usersService.createUser`, no en el Repository ni en el modelo. El hash de la
-contraseña con `bcryptjs` también se hace en el Service, antes de delegarle
-al Repository el simple trabajo de guardar el documento.
+## ¿Por qué separar la generación de mocks del router?
 
-El Controller, por su parte, nunca importa Mongoose ni conoce estas reglas:
-solo traduce el request HTTP a una llamada al Service, y el resultado (o el
-error, vía `error.statusCode`) a una respuesta HTTP con el status code
-correspondiente (`400` en validaciones, `404` si el recurso no existe, `409`
-si un email ya está registrado).
+`mocks.routes.js` solo conecta rutas con métodos del controller.
+`mocks.controller.js` solo lee `qty`/`entity` de la query, delega al service
+y responde. Toda la lógica real vive en dos lugares distintos:
+
+- **`src/mocks/*.mock.js`**: funciones puras que solo generan un objeto
+  falso con la forma correcta, usando las constantes del proyecto. No saben
+  nada de MongoDB ni de reglas de negocio.
+- **`mocks.service.js`**: decide qué hacer con esos datos falsos — valida
+  `qty`, hashea passwords, resuelve la cascada de dependencias, y traduce
+  cualquier falla de MongoDB durante la inserción a un
+  `MOCK_GENERATION_ERROR` controlado en vez de dejar pasar el error técnico
+  crudo.
+
+## ¿Por qué un middleware global en vez de manejar errores en cada controller?
+
+Antes de este módulo, cada controller tenía su propio `catch (error) { ... }`
+armando la respuesta HTTP a mano, repetido de forma casi idéntica en los diez
+métodos del proyecto. Eso generaba dos problemas: código repetido, y el
+riesgo real de que dos controllers respondieran errores parecidos con
+formatos distintos (por ejemplo, uno con `message` y otro con `error`).
+
+Ahora:
+
+- Los Services lanzan `CustomError` con un código del diccionario.
+- Los Controllers están envueltos en `asyncHandler` (`src/utils/asyncHandler.js`),
+  que atrapa cualquier rechazo de una promesa y llama a `next(error)`
+  automáticamente, sin repetir `try/catch` en cada uno.
+- El middleware global (`src/middlewares/errorHandler.js`) es el único lugar
+  que arma la respuesta final: revisa si el error es un `CustomError`
+  conocido (responde con su código y status real) o si es un error inesperado
+  (siempre responde `500 INTERNAL_SERVER_ERROR`, sin exponer detalles
+  internos, pero registrando el error completo en la consola del servidor).
+
+Esto significa que si mañana queremos cambiar el formato de respuesta de
+error de toda la API, se cambia en un solo archivo.
 
 ## Notas de diseño
 
 - El Controller nunca importa `mongoose` ni los modelos directamente.
-- No hay strings sueltos para roles o estados: todo pasa por
-  `src/constants/index.js` (`USER_ROLES`, `PRODUCT_STATUS`).
+- No hay strings sueltos para roles, estados o prioridades: todo pasa por
+  `src/constants/index.js`.
 - No hay llamadas a `process.env` fuera de `src/config/env.config.js`.
-- Los errores de negocio se propagan con `error.statusCode`, y es el
-  Controller quien lo lee para devolver el status HTTP apropiado.
-- El router /api/mocks es una herramienta de desarrollo, no una funcionalidad
-  de negocio para usuarios finales: está separado de las rutas reales 
-  `(/api/products, /api/users)` a propósito.
-- Repository, Service y el módulo de mocking fueron probados de punta
-  a punta con Thunder Client, incluyendo la cascada completa de dependencias
-  `(usuarios → pedidos → repartidores → entregas)` partiendo de una base vacía.
+- No hay respuestas de error armadas a mano en controllers: todo pasa por
+  `CustomError` + el middleware global.
+- El router `/api/mocks` es una herramienta de desarrollo, separada de las
+  rutas reales (`/api/products`, `/api/users`).
+- Todo el manejo de errores fue probado de punta a punta con Thunder Client:
+  rutas inexistentes, validaciones de Products (create y update), usuarios
+  duplicados, recursos inexistentes, y las validaciones del módulo de mocks
+  (cantidad y entidad inválidas).
 
 ## Próximas etapas
 
 El proyecto ShipNow continuará incorporando funcionalidades relacionadas con una empresa de logística, entre ellas:
 
+- Endpoints reales de negocio para Pedidos y Entregas (hoy solo existen sus modelos y repositories, usados por el módulo de mocking)
 - Comercios
 - Comprobantes
 - Documentos
 - Autenticación
 - Autorización
 - Testing automatizado (unit tests con mocks de las capas)
+- Logger y Swagger
 - Seguridad
 - Escalabilidad
 
 ## 👨‍💻 Autor
 
-`Carlos Jonathan Rodriguez Osorio`
+Carlos Jonathan Rodriguez Osorio
 
 Proyecto desarrollado como parte del aprendizaje de Programación Backend III — Comisión #96795 — Coderhouse.

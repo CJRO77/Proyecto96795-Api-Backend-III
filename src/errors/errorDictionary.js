@@ -10,12 +10,35 @@ export const ERROR_DICTIONARY = Object.freeze({
         statusCode: 409,
         message: "Ya existe un usuario registrado con ese email"
     },
+    INVALID_USER_ROLE: {
+        statusCode: 400,
+        message: "El rol de usuario especificado no es válido"
+    },
 
     // Productos
 
     PRODUCT_NOT_FOUND: {
         statusCode: 404,
         message: "El producto solicitado no existe"
+    },
+
+    // Pedidos
+
+    ORDER_NOT_FOUND: { 
+        statusCode: 404,
+        message: "El pedido solicitado no existe"
+    },
+    ORDER_ITEMS_REQUIRED: {
+        statusCode: 400,
+        message: "El pedido debe incluir nombre y peso del producto, así como la cantidad de unidades a enviar"
+    },
+    INVALID_ORDER_STATUS: {
+        statusCode: 400,
+        message: "El estado del pedido especificado no es válido"
+    },  
+    ORDER_ALREADY_DELIVERED: {
+        statusCode: 400,
+        message: "El pedido ya ha sido entregado y no puede ser modificado"
     },
 
     // Mocks / datos de prueba
