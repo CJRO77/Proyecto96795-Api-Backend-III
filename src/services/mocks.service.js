@@ -42,7 +42,8 @@ const insertOrThrow = async (insertFn) => {
     try {
         return await insertFn();
     } catch (error) {
-        throw new CustomError("MOCK_GENERATION_ERROR", error.message);
+        console.error("❌ Error al insertar datos de mock en MongoDB:", error);
+        throw new CustomError("MOCK_GENERATION_ERROR");
     }
 };
 

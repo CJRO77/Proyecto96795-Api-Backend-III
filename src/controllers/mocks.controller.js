@@ -3,7 +3,7 @@ import { USER_ROLES } from "../constants/index.js";
 import { CustomError } from "../errors/CustomError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
-// Controlador de mocks: recibe requests, llama a services y arma responses
+// Mock data controller
 
 const ENTITY_TO_COLLECTION_LABEL = {
     users: "usuarios",
@@ -15,25 +15,25 @@ const ENTITY_TO_COLLECTION_LABEL = {
 export const getMockUsers = asyncHandler(async (req, res) => {
     const { qty = 10 } = req.query;
     const users = mocksService.getMockUsers(qty, USER_ROLES.CUSTOMER);
-    res.status(200).json(users);
+    res.status(200).json({ status: "success", payload: users });
 });
 
 export const getMockDrivers = asyncHandler(async (req, res) => {
     const { qty = 10 } = req.query;
     const drivers = mocksService.getMockDrivers(qty);
-    res.status(200).json(drivers);
+    res.status(200).json({ status: "success", payload: drivers });
 });
 
 export const getMockOrders = asyncHandler(async (req, res) => {
     const { qty = 10 } = req.query;
     const orders = mocksService.getMockOrders(qty);
-    res.status(200).json(orders);
+    res.status(200).json({ status: "success", payload: orders });
 });
 
 export const getMockDeliveries = asyncHandler(async (req, res) => {
     const { qty = 10 } = req.query;
     const deliveries = mocksService.getMockDeliveries(qty);
-    res.status(200).json(deliveries);
+    res.status(200).json({ status: "success", payload: deliveries });
 });
 
 export const seedData = asyncHandler(async (req, res) => {
@@ -58,7 +58,10 @@ export const seedData = asyncHandler(async (req, res) => {
     const insertedCount = await seeder();
 
     res.status(201).json({
-        insertados: insertedCount,
-        coleccion: ENTITY_TO_COLLECTION_LABEL[entity]
+        status: "success",
+        payload: {
+            insertados: insertedCount,
+            coleccion: ENTITY_TO_COLLECTION_LABEL[entity]
+        }
     });
 });
