@@ -1,8 +1,9 @@
 import { productsRepository } from "../repositories/products.repository.js";
 import { PRODUCT_STATUS } from "../constants/index.js";
 import { CustomError } from "../errors/CustomError.js";
+import logger from "../config/logger.config.js";
 
-// Servicio de productos: lógica de negocio y validación de datos
+// Función para validar los datos de un producto antes de crear o actualizar. 
 
 const validateProductData = (productData, { partial = false } = {}) => {
     const { name, description, price, stock } = productData;
@@ -48,7 +49,10 @@ export const productsService = {
             ? PRODUCT_STATUS.OUT_OF_STOCK
             : PRODUCT_STATUS.AVAILABLE;
 
-        return await productsRepository.create(productData);
+        const newProduct = await productsRepository.create(productData);
+        logger.info(`Producto creado: "${newProduct.name}" (id: ${newProduct._id})`);
+
+        return newProduct;
     },
 
     updateProduct: async (id, updateData) => {
@@ -62,12 +66,18 @@ export const productsService = {
                 : PRODUCT_STATUS.AVAILABLE;
         }
 
-        return await productsRepository.update(id, updateData);
+        const updatedProduct = await productsRepository.update(id, updateData);
+        logger.info(`Producto actualizado (id: ${id})`);
+
+        return updatedProduct;
     },
 
     deleteProduct: async (id) => {
         await productsService.getProductById(id);
 
-        return await productsRepository.delete(id);
+        const deletedProduct = await productsRepository.delete(id);
+        logger.info(`Producto eliminado (id: ${id})`);
+
+        return deletedProduct;
     }
 };

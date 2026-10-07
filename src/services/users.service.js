@@ -2,8 +2,9 @@ import bcrypt from "bcryptjs";
 import { usersRepository } from "../repositories/users.repository.js";
 import { USER_ROLES } from "../constants/index.js";
 import { CustomError } from "../errors/CustomError.js";
+import logger from "../config/logger.config.js";
 
-// Servicio de usuarios: lógica de negocio y validación de datos
+// Controlador para manejar la lógica de negocio relacionada con los usuarios.
 
 const SALT_ROUNDS = 10;
 
@@ -39,7 +40,7 @@ export const usersService = {
         const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
         // nadie se autoasigna ADMIN al registrarse
-
+        
         const newUser = await usersRepository.create({
             firstName,
             lastName,
@@ -49,6 +50,7 @@ export const usersService = {
         });
 
         newUser.password = undefined;
+        logger.info(`Usuario registrado: ${newUser.email}`);
 
         return newUser;
     },
@@ -60,12 +62,18 @@ export const usersService = {
             updateData.password = await bcrypt.hash(updateData.password, SALT_ROUNDS);
         }
 
-        return await usersRepository.update(id, updateData);
+        const updatedUser = await usersRepository.update(id, updateData);
+        logger.info(`Usuario actualizado (id: ${id})`);
+
+        return updatedUser;
     },
 
     deleteUser: async (id) => {
         await usersService.getUserById(id);
 
-        return await usersRepository.delete(id);
+        const deletedUser = await usersRepository.delete(id);
+        logger.info(`Usuario eliminado (id: ${id})`);
+
+        return deletedUser;
     }
 };

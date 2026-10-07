@@ -3,7 +3,7 @@ import { USER_ROLES } from "../constants/index.js";
 import { CustomError } from "../errors/CustomError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
-// Mock data controller
+// Mapeo de entidades a nombres de colección para la respuesta de seedData.
 
 const ENTITY_TO_COLLECTION_LABEL = {
     users: "usuarios",

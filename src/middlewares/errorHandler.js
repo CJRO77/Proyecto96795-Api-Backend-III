@@ -1,11 +1,22 @@
 import { CustomError } from "../errors/CustomError.js";
 import { config } from "../config/env.config.js";
+import logger from "../config/logger.config.js";
+
+// Controlador para manejar errores en la aplicación Express.
 
 export const errorHandler = (error, req, res, next) => {
 
-    // Caso esperado: un error de dominio que nosotros mismos generamos.
-
     if (error instanceof CustomError) {
+        const logLine = `${error.code} - ${error.message} - ${req.method} ${req.originalUrl}`;
+
+       // Loguear el error según su gravedad (statusCode)
+
+        if (error.statusCode >= 500) {
+            logger.error(logLine);
+        } else {
+            logger.warning(logLine);
+        }
+
         const response = {
             status: "error",
             error: error.code,
@@ -19,9 +30,11 @@ export const errorHandler = (error, req, res, next) => {
         return res.status(error.statusCode).json(response);
     }
 
-    // Caso inesperado: un error técnico que no contemplamos (bug, Mongo caído, etc.).
-    
-    console.error("❌ Error inesperado:", error);
+    // Si el error no es una instancia de CustomError, se trata como un error inesperado.
+
+    logger.error(`Error inesperado - ${req.method} ${req.originalUrl} - ${error.message}`, {
+        stack: error.stack
+    });
 
     const response = {
         status: "error",

@@ -1,15 +1,15 @@
 import mongoose from "mongoose";
 import { config } from "./env.config.js";
+import logger from "./logger.config.js";
 
-// Configuración de Mongoose
+// Controlador para conectar a la base de datos MongoDB usando Mongoose.
 
 export const connectDB = async () => {
     try {
         await mongoose.connect(config.mongoUri);
-
-        console.log("🍃 MongoDB conectado correctamente");
+        logger.info("Conexión a MongoDB establecida");
     } catch (error) {
-        console.error("❌ Error al conectar con MongoDB:", error.message);
+        logger.fatal(`No se pudo conectar a MongoDB: ${error.message}`);
         process.exit(1);
     }
 };

@@ -1,7 +1,7 @@
 import { usersService } from "../services/users.service.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
-// Controlador de usuarios: recibe requests, llama a services y arma responses
+// Controlador de usuarios: recibe requests, llama a services y arma responses.
 
 export const getUsers = asyncHandler(async (req, res) => {
     const users = await usersService.getAllUsers();

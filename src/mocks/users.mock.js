@@ -7,12 +7,7 @@ const LAST_NAMES = ["Gómez", "Pérez", "Torres", "Rodríguez", "Fernández", "L
 
 const pickRandom = (list) => list[Math.floor(Math.random() * list.length)];
 
-/**
- * Genera un usuario falso con estructura compatible con el modelo real de User.
- * El password se devuelve en texto plano acá: quien lo persista es responsable
- * de hashearlo (esa es una regla de negocio, no de generación de datos).
- */
-
+// Genera un objeto de usuario de mock con un role opcional (por defecto CUSTOMER).
 
 export const generateMockUser = (role = USER_ROLES.CUSTOMER) => {
     const firstName = pickRandom(FIRST_NAMES);
@@ -32,9 +27,8 @@ export const generateMockUsers = (qty, role = USER_ROLES.CUSTOMER) => {
     return Array.from({ length: qty }, () => generateMockUser(role));
 };
 
-/**
- * Un repartidor es un User con role DRIVER, más el flag isAvailable.
- */
+// Genera un objeto de repartidor de mock con un role DRIVER y un estado de disponibilidad aleatorio.
+
 export const generateMockDriver = () => {
     return {
         ...generateMockUser(USER_ROLES.DRIVER),

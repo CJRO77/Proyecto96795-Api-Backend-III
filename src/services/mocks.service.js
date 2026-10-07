@@ -10,6 +10,7 @@ import { generateMockOrders } from "../mocks/orders.mock.js";
 import { generateMockDeliveries } from "../mocks/deliveries.mock.js";
 import { USER_ROLES, MOCK_LIMITS } from "../constants/index.js";
 import { CustomError } from "../errors/CustomError.js";
+import logger from "../config/logger.config.js";
 
 // Mock data generation service
 

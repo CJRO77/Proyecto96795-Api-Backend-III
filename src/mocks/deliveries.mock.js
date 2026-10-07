@@ -6,10 +6,8 @@ import { DELIVERY_STATUS } from "../constants/index.js";
 const pickRandom = (list) => list[Math.floor(Math.random() * list.length)];
 const pickRandomStatus = () => pickRandom(Object.values(DELIVERY_STATUS));
 
-/**
- * Genera una entrega asociada a un pedido (obligatorio) y, cuando
- * corresponde, a un repartidor (opcional).
- */
+// Genera un objeto de entrega de mock con un orderId y un driverId opcionales.
+
 export const generateMockDelivery = (
     orderId = new mongoose.Types.ObjectId(),
     driverId = null
@@ -21,11 +19,8 @@ export const generateMockDelivery = (
     };
 };
 
-/**
- * orderIds: ids reales de pedidos existentes (obligatorio).
- * driverIds: ids reales de repartidores (opcional: ~70% de las entregas
- * se asignan a un repartidor, el resto queda sin asignar).
- */
+// Genera un array de objetos de entrega de mock con una cantidad específica, y opcionalmente con listas de orderIds y driverIds.
+
 export const generateMockDeliveries = (qty, orderIds = [], driverIds = []) => {
     return Array.from({ length: qty }, () => {
         const orderId = orderIds.length > 0 ? pickRandom(orderIds) : undefined;

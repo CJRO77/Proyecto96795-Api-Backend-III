@@ -1,16 +1,15 @@
 import { config } from "./config/env.config.js";
 import { connectDB } from "./config/database.config.js";
 import app from "./app.js";
+import logger from "./config/logger.config.js";
 
-// Iniciar el servidor
+// Función para iniciar el servidor y conectar a la base de datos.
 
 const startServer = async () => {
     await connectDB();
 
     app.listen(config.port, () => {
-        console.log(
-            `Servidor ShipNow ejecutándose en http://localhost:${config.port}`
-        );
+        logger.info(`Servidor ShipNow escuchando en el puerto ${config.port}`);
     });
 };
 
