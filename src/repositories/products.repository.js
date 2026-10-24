@@ -15,7 +15,8 @@ export const productsRepository = {
     },
 
     create: async (productData) => {
-        return await ProductModel.create(productData);
+        const created = await ProductModel.create(productData);
+        return created.toObject({ versionKey: false });
     },
 
     update: async (id, updateData) => {

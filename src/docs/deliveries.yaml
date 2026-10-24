@@ -1,0 +1,251 @@
+paths:
+
+# Los endpoints relacionados con entregas se agrupan bajo el tag "Deliveries" y se documentan en la sección correspondiente de la documentación Swagger.
+
+  /api/deliveries:
+    get:
+      summary: Listar entregas
+      description: Devuelve todas las entregas, de la más reciente a la más antigua. Se puede filtrar por estado con el query param status.
+      tags:
+        - Deliveries
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: Filtra las entregas por estado.
+          schema:
+            type: string
+            enum: [PENDING, ASSIGNED, IN_TRANSIT, DELIVERED, FAILED]
+      responses:
+        "200":
+          description: Lista de entregas obtenida correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  payload:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Delivery'
+        "400":
+          description: El estado enviado en el filtro no es válido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: error
+                error: INVALID_DELIVERY_STATUS
+                message: El estado de la entrega especificado no es válido
+                details: 'status recibido: "en camino". Valores permitidos: PENDING, ASSIGNED, IN_TRANSIT, DELIVERED, FAILED'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      summary: Crear una entrega
+      description: >
+        Crea una entrega para un pedido existente. El repartidor es opcional: si se envía driver,
+        debe ser un usuario existente con rol DRIVER que esté disponible, y la entrega nace ASSIGNED;
+        si no se envía, nace PENDING.
+      tags:
+        - Deliveries
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeliveryInput'
+      responses:
+        "201":
+          description: Entrega creada correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Entrega creada correctamente
+                  payload:
+                    $ref: '#/components/schemas/Delivery'
+        "400":
+          description: Datos inválidos para crear la entrega
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                faltaOrder:
+                  summary: Falta el campo order
+                  value:
+                    status: error
+                    error: VALIDATION_ERROR
+                    message: Los datos enviados no son válidos
+                    details: order es obligatorio
+                rolInvalido:
+                  summary: El usuario indicado como driver no tiene rol DRIVER
+                  value:
+                    status: error
+                    error: INVALID_USER_ROLE
+                    message: El usuario indicado no tiene el rol requerido para esta operación
+                    details: 'driver: 665f4d0a8f9a1b001234abd2 (rol: CUSTOMER)'
+                idInvalido:
+                  summary: El id de order o driver tiene formato inválido
+                  value:
+                    status: error
+                    error: INVALID_ID
+                    message: El identificador enviado no tiene un formato válido
+        "404":
+          description: El pedido o el repartidor indicado no existe
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                pedidoInexistente:
+                  summary: El pedido no existe
+                  value:
+                    status: error
+                    error: ORDER_NOT_FOUND
+                    message: El pedido solicitado no existe
+                    details: 'order: 665f4d0a8f9a1b001234abd0'
+                repartidorInexistente:
+                  summary: El repartidor no existe
+                  value:
+                    status: error
+                    error: USER_NOT_FOUND
+                    message: El usuario solicitado no existe
+                    details: 'driver: 665f4d0a8f9a1b001234abd2'
+        "409":
+          description: El repartidor no está disponible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: error
+                error: DRIVER_NOT_AVAILABLE
+                message: El repartidor no está disponible para tomar una nueva entrega
+                details: 'driver: 665f4d0a8f9a1b001234abd2'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/deliveries/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID de la entrega (ObjectId de MongoDB)
+        schema:
+          type: string
+          example: 665f4d0a8f9a1b001234abd1
+
+    get:
+      summary: Obtener una entrega por ID
+      tags:
+        - Deliveries
+      responses:
+        "200":
+          description: Entrega obtenida correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  payload:
+                    $ref: '#/components/schemas/Delivery'
+        "400":
+          $ref: '#/components/responses/InvalidId'
+        "404":
+          description: No existe una entrega con ese ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: error
+                error: DELIVERY_NOT_FOUND
+                message: La entrega solicitada no existe
+                details: 'id: 665f4d0a8f9a1b001234abd1'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/deliveries/{id}/status:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID de la entrega (ObjectId de MongoDB)
+        schema:
+          type: string
+          example: 665f4d0a8f9a1b001234abd1
+
+    patch:
+      summary: Actualizar el estado de una entrega
+      description: Cambia solo el estado de la entrega.
+      tags:
+        - Deliveries
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeliveryStatusInput'
+      responses:
+        "200":
+          description: Estado de la entrega actualizado correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Estado de la entrega actualizado correctamente
+                  payload:
+                    $ref: '#/components/schemas/Delivery'
+        "400":
+          description: El estado enviado no es válido, o el ID tiene formato inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                estadoInvalido:
+                  summary: Estado que no existe
+                  value:
+                    status: error
+                    error: INVALID_DELIVERY_STATUS
+                    message: El estado de la entrega especificado no es válido
+                    details: 'status recibido: "en camino". Valores permitidos: PENDING, ASSIGNED, IN_TRANSIT, DELIVERED, FAILED'
+                idInvalido:
+                  summary: ID con formato inválido
+                  value:
+                    status: error
+                    error: INVALID_ID
+                    message: El identificador enviado no tiene un formato válido
+        "404":
+          description: No existe una entrega con ese ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: error
+                error: DELIVERY_NOT_FOUND
+                message: La entrega solicitada no existe
+        "500":
+          $ref: '#/components/responses/InternalServerError'

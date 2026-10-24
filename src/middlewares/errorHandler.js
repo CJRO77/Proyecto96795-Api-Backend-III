@@ -2,16 +2,31 @@ import { CustomError } from "../errors/CustomError.js";
 import { config } from "../config/env.config.js";
 import logger from "../config/logger.config.js";
 
-// Controlador para manejar errores en la aplicación Express.
+// Normaliza ciertos errores conocidos para que sean manejados de manera uniforme.
+
+
+const normalizeError = (error) => {
+    if (error.name === "CastError") {
+        return new CustomError("INVALID_ID", `${error.path}: "${error.value}"`);
+    }
+
+    if (error.type === "entity.parse.failed") {
+        return new CustomError("VALIDATION_ERROR", "El body de la petición no es un JSON válido");
+    }
+
+    return error;
+};
 
 export const errorHandler = (error, req, res, next) => {
+    const handledError = normalizeError(error);
 
-    if (error instanceof CustomError) {
-        const logLine = `${error.code} - ${error.message} - ${req.method} ${req.originalUrl}`;
+    // Error conocido: se responde con el código y mensaje correspondiente, y se registra un log de advertencia o error según corresponda.
 
-       // Loguear el error según su gravedad (statusCode)
+    if (handledError instanceof CustomError) {
+        const logLine = `${handledError.code} - ${handledError.message} - ${req.method} ${req.originalUrl}`;
 
-        if (error.statusCode >= 500) {
+        
+        if (handledError.statusCode >= 500) {
             logger.error(logLine);
         } else {
             logger.warning(logLine);
@@ -19,18 +34,19 @@ export const errorHandler = (error, req, res, next) => {
 
         const response = {
             status: "error",
-            error: error.code,
-            message: error.message
+            error: handledError.code,
+            message: handledError.message
         };
 
-        if (config.nodeEnv !== "production" && error.details) {
-            response.details = error.details;
+        if (config.nodeEnv !== "production" && handledError.details) {
+            response.details = handledError.details;
         }
 
-        return res.status(error.statusCode).json(response);
+        return res.status(handledError.statusCode).json(response);
     }
 
-    // Si el error no es una instancia de CustomError, se trata como un error inesperado.
+    // Error inesperado: queda registrado completo (con stack trace) para investigarlo.
+
 
     logger.error(`Error inesperado - ${req.method} ${req.originalUrl} - ${error.message}`, {
         stack: error.stack

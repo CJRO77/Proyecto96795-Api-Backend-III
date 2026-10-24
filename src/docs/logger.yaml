@@ -1,0 +1,31 @@
+paths:
+
+# Los endpoints relacionados con el logger se agrupan bajo el tag "Logger" y se documentan en la sección correspondiente de la documentación Swagger.
+
+  /api/logger-test:
+    get:
+      summary: Probar los niveles del logger
+      description: >
+        Herramienta interna de validación, NO es una funcionalidad de negocio.
+        Genera un log de cada uno de los 6 niveles (debug, http, info, warning, error y fatal) para
+        verificar que el logger está bien configurado: la consola debe mostrar los niveles según
+        NODE_ENV, y el archivo logs/error-AAAA-MM-DD.log debe recibir únicamente error y fatal.
+      tags:
+        - Logger
+      responses:
+        "200":
+          description: Logs generados correctamente en los 6 niveles
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  payload:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+                        example: Logs generados correctamente en los 6 niveles

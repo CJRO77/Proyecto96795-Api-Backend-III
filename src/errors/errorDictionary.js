@@ -12,7 +12,7 @@ export const ERROR_DICTIONARY = Object.freeze({
     },
     INVALID_USER_ROLE: {
         statusCode: 400,
-        message: "El rol de usuario especificado no es válido"
+        message: "El usuario indicado no tiene el rol requerido para esta operación"
     },
 
     // Productos
@@ -24,21 +24,36 @@ export const ERROR_DICTIONARY = Object.freeze({
 
     // Pedidos
 
-    ORDER_NOT_FOUND: { 
+    ORDER_NOT_FOUND: {
         statusCode: 404,
         message: "El pedido solicitado no existe"
     },
     ORDER_ITEMS_REQUIRED: {
         statusCode: 400,
-        message: "El pedido debe incluir nombre y peso del producto, así como la cantidad de unidades a enviar"
+        message: "El pedido debe incluir al menos un item"
     },
     INVALID_ORDER_STATUS: {
         statusCode: 400,
         message: "El estado del pedido especificado no es válido"
-    },  
+    },
     ORDER_ALREADY_DELIVERED: {
-        statusCode: 400,
+        statusCode: 409,
         message: "El pedido ya ha sido entregado y no puede ser modificado"
+    },
+
+    // Entregas
+
+    DELIVERY_NOT_FOUND: {
+        statusCode: 404,
+        message: "La entrega solicitada no existe"
+    },
+    INVALID_DELIVERY_STATUS: {
+        statusCode: 400,
+        message: "El estado de la entrega especificado no es válido"
+    },
+    DRIVER_NOT_AVAILABLE: {
+        statusCode: 409,
+        message: "El repartidor no está disponible para tomar una nueva entrega"
     },
 
     // Mocks / datos de prueba
@@ -61,6 +76,10 @@ export const ERROR_DICTIONARY = Object.freeze({
     VALIDATION_ERROR: {
         statusCode: 400,
         message: "Los datos enviados no son válidos"
+    },
+    INVALID_ID: {
+        statusCode: 400,
+        message: "El identificador enviado no tiene un formato válido"
     },
 
     // Rutas y servidor

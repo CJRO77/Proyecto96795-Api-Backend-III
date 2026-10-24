@@ -1,0 +1,214 @@
+paths:
+
+# Los endpoints relacionados con productos se agrupan bajo el tag "Products" y se documentan en la sección correspondiente de la documentación Swagger.
+
+  /api/products:
+    get:
+      summary: Listar productos disponibles
+      description: Devuelve solo los productos con status AVAILABLE. Los que están OUT_OF_STOCK no aparecen en el listado general.
+      tags:
+        - Products
+      responses:
+        "200":
+          description: Lista de productos obtenida correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  payload:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Product'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      summary: Crear un producto
+      description: El status se calcula automáticamente (stock 0 → OUT_OF_STOCK, de lo contrario AVAILABLE).
+      tags:
+        - Products
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductInput'
+      responses:
+        "201":
+          description: Producto creado correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Producto creado correctamente
+                  payload:
+                    $ref: '#/components/schemas/Product'
+        "400":
+          description: Faltan campos obligatorios o price/stock son negativos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                faltanCampos:
+                  summary: Falta un campo obligatorio
+                  value:
+                    status: error
+                    error: VALIDATION_ERROR
+                    message: Los datos enviados no son válidos
+                    details: name, description, price y stock son obligatorios
+                valorNegativo:
+                  summary: price negativo
+                  value:
+                    status: error
+                    error: VALIDATION_ERROR
+                    message: Los datos enviados no son válidos
+                    details: price no puede ser negativo
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/products/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID del producto (ObjectId de MongoDB)
+        schema:
+          type: string
+          example: 665f4d0a8f9a1b001234abcf
+
+    get:
+      summary: Obtener un producto por ID
+      tags:
+        - Products
+      responses:
+        "200":
+          description: Producto obtenido correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  payload:
+                    $ref: '#/components/schemas/Product'
+        "400":
+          $ref: '#/components/responses/InvalidId'
+        "404":
+          description: No existe un producto con ese ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: error
+                error: PRODUCT_NOT_FOUND
+                message: El producto solicitado no existe
+                details: 'id: 665f4d0a8f9a1b001234abcf'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      summary: Actualizar un producto
+      description: Modifica solo los campos enviados. Si se envía stock, el status se recalcula automáticamente.
+      tags:
+        - Products
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductUpdateInput'
+      responses:
+        "200":
+          description: Producto actualizado correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Producto actualizado correctamente
+                  payload:
+                    $ref: '#/components/schemas/Product'
+        "400":
+          description: ID con formato inválido, o price/stock negativos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                idInvalido:
+                  summary: ID con formato inválido
+                  value:
+                    status: error
+                    error: INVALID_ID
+                    message: El identificador enviado no tiene un formato válido
+                valorNegativo:
+                  summary: stock negativo
+                  value:
+                    status: error
+                    error: VALIDATION_ERROR
+                    message: Los datos enviados no son válidos
+                    details: stock no puede ser negativo
+        "404":
+          description: No existe un producto con ese ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: error
+                error: PRODUCT_NOT_FOUND
+                message: El producto solicitado no existe
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      summary: Eliminar un producto
+      tags:
+        - Products
+      responses:
+        "200":
+          description: Producto eliminado correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Producto eliminado correctamente
+        "400":
+          $ref: '#/components/responses/InvalidId'
+        "404":
+          description: No existe un producto con ese ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: error
+                error: PRODUCT_NOT_FOUND
+                message: El producto solicitado no existe
+        "500":
+          $ref: '#/components/responses/InternalServerError'

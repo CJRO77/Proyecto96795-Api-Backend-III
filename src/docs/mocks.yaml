@@ -1,0 +1,207 @@
+paths:
+
+# Los endpoints relacionados con datos de prueba se agrupan bajo el tag "Mocks" y se documentan en la sección correspondiente de la documentación Swagger.
+
+  /api/mocks/users:
+    get:
+      summary: Generar usuarios simulados
+      description: >
+        Herramienta de desarrollo. Genera usuarios falsos con rol CUSTOMER y los devuelve
+        sin guardarlos en la base de datos.
+      tags:
+        - Mocks
+      parameters:
+        - $ref: '#/components/parameters/MockQty'
+      responses:
+        "200":
+          description: Usuarios simulados generados correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  payload:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MockUser'
+        "400":
+          $ref: '#/components/responses/InvalidMockAmount'
+
+  /api/mocks/drivers:
+    get:
+      summary: Generar repartidores simulados
+      description: >
+        Herramienta de desarrollo. Genera usuarios falsos con rol DRIVER (con el flag isAvailable)
+        y los devuelve sin guardarlos en la base de datos.
+      tags:
+        - Mocks
+      parameters:
+        - $ref: '#/components/parameters/MockQty'
+      responses:
+        "200":
+          description: Repartidores simulados generados correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  payload:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MockDriver'
+        "400":
+          $ref: '#/components/responses/InvalidMockAmount'
+
+  /api/mocks/orders:
+    get:
+      summary: Generar pedidos simulados
+      description: >
+        Herramienta de desarrollo. Genera pedidos falsos con estados y prioridades válidos y los
+        devuelve sin guardarlos. El campo customer es un ObjectId inventado: para obtener pedidos
+        con clientes reales hay que usar POST /api/mocks/seed?entity=orders.
+      tags:
+        - Mocks
+      parameters:
+        - $ref: '#/components/parameters/MockQty'
+      responses:
+        "200":
+          description: Pedidos simulados generados correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  payload:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MockOrder'
+        "400":
+          $ref: '#/components/responses/InvalidMockAmount'
+
+  /api/mocks/deliveries:
+    get:
+      summary: Generar entregas simuladas
+      description: >
+        Herramienta de desarrollo. Genera entregas falsas y las devuelve sin guardarlas.
+        Los campos order y driver son ObjectId inventados; driver puede ser null.
+      tags:
+        - Mocks
+      parameters:
+        - $ref: '#/components/parameters/MockQty'
+      responses:
+        "200":
+          description: Entregas simuladas generadas correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  payload:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MockDelivery'
+        "400":
+          $ref: '#/components/responses/InvalidMockAmount'
+
+  /api/mocks/seed:
+    post:
+      summary: Insertar datos de prueba en MongoDB
+      description: >
+        Herramienta de desarrollo. Genera e inserta registros reales en la base de datos.
+        No recibe body: la cantidad y la entidad se envían como query params.
+        Respeta las relaciones entre entidades: si se piden pedidos y no hay usuarios CUSTOMER,
+        o se piden entregas y no hay pedidos o repartidores, se generan automáticamente en cascada
+        lo que falte antes de crear lo pedido.
+      tags:
+        - Mocks
+      parameters:
+        - $ref: '#/components/parameters/MockQty'
+        - name: entity
+          in: query
+          required: false
+          description: Qué entidad generar.
+          schema:
+            type: string
+            enum: [users, drivers, orders, deliveries]
+            default: users
+      responses:
+        "201":
+          description: Datos de prueba insertados correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  payload:
+                    $ref: '#/components/schemas/MockSeedResult'
+        "400":
+          description: Cantidad o entidad inválida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                cantidadInvalida:
+                  summary: qty no es un entero positivo, o supera el máximo (100)
+                  value:
+                    status: error
+                    error: INVALID_MOCK_AMOUNT
+                    message: La cantidad de registros a generar debe ser un número entero positivo
+                    details: 'qty recibido: "-5"'
+                entidadInvalida:
+                  summary: entity no es una de las permitidas
+                  value:
+                    status: error
+                    error: INVALID_MOCK_ENTITY
+                    message: La entidad solicitada para generar datos de prueba no es válida
+                    details: 'entity recibido: "vehiculos". Valores permitidos: users, drivers, orders, deliveries'
+        "500":
+          description: Falló la inserción de los datos de prueba en MongoDB
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: error
+                error: MOCK_GENERATION_ERROR
+                message: Ocurrió un error al generar o insertar los datos de prueba
+
+components:
+  parameters:
+    MockQty:
+      name: qty
+      in: query
+      required: false
+      description: Cantidad de registros a generar (entero entre 1 y 100).
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 10
+  responses:
+    InvalidMockAmount:
+      description: La cantidad enviada no es un entero positivo, o supera el máximo permitido (100).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: error
+            error: INVALID_MOCK_AMOUNT
+            message: La cantidad de registros a generar debe ser un número entero positivo
+            details: 'qty recibido: "abc"'

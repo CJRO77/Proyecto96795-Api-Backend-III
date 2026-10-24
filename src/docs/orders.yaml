@@ -1,0 +1,246 @@
+paths:
+
+# Los endpoints relacionados con pedidos se agrupan bajo el tag "Orders" y se documentan en la sección correspondiente de la documentación Swagger.
+
+  /api/orders:
+    get:
+      summary: Listar pedidos
+      description: Devuelve todos los pedidos, del más reciente al más antiguo. Se puede filtrar por estado con el query param status.
+      tags:
+        - Orders
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: Filtra los pedidos por estado.
+          schema:
+            type: string
+            enum: [CREATED, ASSIGNED, PICKED_UP, IN_TRANSIT, DELIVERED, CANCELLED]
+      responses:
+        "200":
+          description: Lista de pedidos obtenida correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  payload:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Order'
+        "400":
+          description: El estado enviado en el filtro no es válido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: error
+                error: INVALID_ORDER_STATUS
+                message: El estado del pedido especificado no es válido
+                details: 'status recibido: "en camino". Valores permitidos: CREATED, ASSIGNED, PICKED_UP, IN_TRANSIT, DELIVERED, CANCELLED'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      summary: Crear un pedido
+      description: >
+        Crea un pedido para un usuario existente. El total lo calcula el servidor
+        (suma de quantity * price de cada item) y el estado inicial siempre es CREATED.
+        Si no se envía priority, el pedido queda con prioridad NORMAL.
+      tags:
+        - Orders
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderInput'
+      responses:
+        "201":
+          description: Pedido creado correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Pedido creado correctamente
+                  payload:
+                    $ref: '#/components/schemas/Order'
+        "400":
+          description: Datos inválidos para crear el pedido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                sinItems:
+                  summary: El pedido no tiene items
+                  value:
+                    status: error
+                    error: ORDER_ITEMS_REQUIRED
+                    message: El pedido debe incluir al menos un item
+                faltanCampos:
+                  summary: Falta customer o deliveryAddress
+                  value:
+                    status: error
+                    error: VALIDATION_ERROR
+                    message: Los datos enviados no son válidos
+                    details: customer y deliveryAddress son obligatorios
+                itemInvalido:
+                  summary: Un item tiene datos inválidos
+                  value:
+                    status: error
+                    error: VALIDATION_ERROR
+                    message: Los datos enviados no son válidos
+                    details: items[0].quantity debe ser un entero mayor o igual a 1
+                idInvalido:
+                  summary: El id de customer tiene formato inválido
+                  value:
+                    status: error
+                    error: INVALID_ID
+                    message: El identificador enviado no tiene un formato válido
+        "404":
+          description: El usuario indicado en customer no existe
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: error
+                error: USER_NOT_FOUND
+                message: El usuario solicitado no existe
+                details: 'customer: 665f4d0a8f9a1b001234abce'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/orders/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID del pedido (ObjectId de MongoDB)
+        schema:
+          type: string
+          example: 665f4d0a8f9a1b001234abd0
+
+    get:
+      summary: Obtener un pedido por ID
+      tags:
+        - Orders
+      responses:
+        "200":
+          description: Pedido obtenido correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  payload:
+                    $ref: '#/components/schemas/Order'
+        "400":
+          $ref: '#/components/responses/InvalidId'
+        "404":
+          description: No existe un pedido con ese ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: error
+                error: ORDER_NOT_FOUND
+                message: El pedido solicitado no existe
+                details: 'id: 665f4d0a8f9a1b001234abd0'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/orders/{id}/status:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID del pedido (ObjectId de MongoDB)
+        schema:
+          type: string
+          example: 665f4d0a8f9a1b001234abd0
+
+    patch:
+      summary: Actualizar el estado de un pedido
+      description: Cambia solo el estado del pedido. Un pedido que ya está DELIVERED queda cerrado y no admite más cambios.
+      tags:
+        - Orders
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderStatusInput'
+      responses:
+        "200":
+          description: Estado del pedido actualizado correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Estado del pedido actualizado correctamente
+                  payload:
+                    $ref: '#/components/schemas/Order'
+        "400":
+          description: El estado enviado no es válido, o el ID tiene formato inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                estadoInvalido:
+                  summary: Estado que no existe
+                  value:
+                    status: error
+                    error: INVALID_ORDER_STATUS
+                    message: El estado del pedido especificado no es válido
+                    details: 'status recibido: "en camino". Valores permitidos: CREATED, ASSIGNED, PICKED_UP, IN_TRANSIT, DELIVERED, CANCELLED'
+                idInvalido:
+                  summary: ID con formato inválido
+                  value:
+                    status: error
+                    error: INVALID_ID
+                    message: El identificador enviado no tiene un formato válido
+        "404":
+          description: No existe un pedido con ese ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: error
+                error: ORDER_NOT_FOUND
+                message: El pedido solicitado no existe
+        "409":
+          description: El pedido ya fue entregado y no puede modificarse
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: error
+                error: ORDER_ALREADY_DELIVERED
+                message: El pedido ya ha sido entregado y no puede ser modificado
+        "500":
+          $ref: '#/components/responses/InternalServerError'

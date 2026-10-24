@@ -1,0 +1,200 @@
+paths:
+
+# Los endpoints relacionados con usuarios se agrupan bajo el tag "Users" y se documentan en la sección correspondiente de la documentación Swagger.
+
+  /api/users:
+    get:
+      summary: Listar usuarios
+      description: Devuelve todos los usuarios registrados. Nunca incluye el campo password.
+      tags:
+        - Users
+      responses:
+        "200":
+          description: Lista de usuarios obtenida correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  payload:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      summary: Registrar un usuario
+      description: >
+        Crea un usuario nuevo. El password se guarda hasheado con bcrypt.
+        El rol siempre es USER: cualquier role enviado en el body se ignora,
+        para que nadie pueda auto-asignarse el rol ADMIN al registrarse.
+      tags:
+        - Users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserInput'
+      responses:
+        "201":
+          description: Usuario creado correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Usuario creado correctamente
+                  payload:
+                    $ref: '#/components/schemas/User'
+        "400":
+          description: Faltan campos obligatorios
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: error
+                error: VALIDATION_ERROR
+                message: Los datos enviados no son válidos
+                details: firstName, lastName, email y password son obligatorios
+        "409":
+          description: Ya existe un usuario con ese email
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: error
+                error: USER_ALREADY_EXISTS
+                message: Ya existe un usuario registrado con ese email
+                details: 'email: ana.perez@test.com'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/users/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID del usuario (ObjectId de MongoDB)
+        schema:
+          type: string
+          example: 665f4d0a8f9a1b001234abce
+
+    get:
+      summary: Obtener un usuario por ID
+      tags:
+        - Users
+      responses:
+        "200":
+          description: Usuario obtenido correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  payload:
+                    $ref: '#/components/schemas/User'
+        "400":
+          $ref: '#/components/responses/InvalidId'
+        "404":
+          description: No existe un usuario con ese ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: error
+                error: USER_NOT_FOUND
+                message: El usuario solicitado no existe
+                details: 'id: 665f4d0a8f9a1b001234abce'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      summary: Actualizar un usuario
+      description: Modifica solo los campos enviados. Si se envía password, se vuelve a hashear.
+      tags:
+        - Users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdateInput'
+      responses:
+        "200":
+          description: Usuario actualizado correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Usuario actualizado correctamente
+                  payload:
+                    $ref: '#/components/schemas/User'
+        "400":
+          $ref: '#/components/responses/InvalidId'
+        "404":
+          description: No existe un usuario con ese ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: error
+                error: USER_NOT_FOUND
+                message: El usuario solicitado no existe
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      summary: Eliminar un usuario
+      tags:
+        - Users
+      responses:
+        "200":
+          description: Usuario eliminado correctamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Usuario eliminado correctamente
+        "400":
+          $ref: '#/components/responses/InvalidId'
+        "404":
+          description: No existe un usuario con ese ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: error
+                error: USER_NOT_FOUND
+                message: El usuario solicitado no existe
+        "500":
+          $ref: '#/components/responses/InternalServerError'
