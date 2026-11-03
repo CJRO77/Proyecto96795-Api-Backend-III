@@ -1,8 +1,12 @@
 import dotenv from "dotenv";
 
-// Cargar variables de entorno desde el archivo .env
+// En modo test se carga .env.test (otra base de datos, otras variables).
+// En cualquier otro modo se carga .env, como siempre.
+// NODE_ENV=test lo define el script "npm test" (con cross-env).
 
-dotenv.config();
+const isTest = process.env.NODE_ENV === "test";
+
+dotenv.config({ path: isTest ? ".env.test" : ".env", quiet: isTest });
 
 const requiredVariables = [
     "PORT",

@@ -25,7 +25,7 @@ export const deliveriesRepository = {
 
     update: async (id, updateData) => {
         return await DeliveryModel.findByIdAndUpdate(id, updateData, {
-            new: true,
+            returnDocument: "after",
             runValidators: true
         }).select(DEFAULT_PROJECTION);
     }

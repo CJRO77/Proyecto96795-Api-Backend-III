@@ -21,7 +21,7 @@ export const productsRepository = {
 
     update: async (id, updateData) => {
         return await ProductModel.findByIdAndUpdate(id, updateData, {
-            new: true,
+            returnDocument: "after",
             runValidators: true
         }).select(DEFAULT_PROJECTION);
     },

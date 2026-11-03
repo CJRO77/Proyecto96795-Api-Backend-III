@@ -29,7 +29,7 @@ export const usersRepository = {
 
     update: async (id, updateData) => {
         return await UserModel.findByIdAndUpdate(id, updateData, {
-            new: true,
+            returnDocument: "after",
             runValidators: true
         }).select(DEFAULT_PROJECTION);
     },

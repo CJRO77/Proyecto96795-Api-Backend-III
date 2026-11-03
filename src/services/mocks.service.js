@@ -43,7 +43,7 @@ const insertOrThrow = async (insertFn) => {
     try {
         return await insertFn();
     } catch (error) {
-        console.error("❌ Error al insertar datos de mock en MongoDB:", error);
+        logger.error(`Error al insertar datos de mock en MongoDB: ${error.message}`, { stack: error.stack });
         throw new CustomError("MOCK_GENERATION_ERROR");
     }
 };
@@ -76,6 +76,7 @@ export const mocksService = {
         const usersWithHashedPasswords = await hashUsers(mockUsers);
 
         const inserted = await insertOrThrow(() => usersRepository.insertMany(usersWithHashedPasswords));
+        logger.info(`Mocks: se insertaron ${inserted.length} usuarios (role: ${role})`);
         return inserted.length;
     },
 
@@ -85,6 +86,7 @@ export const mocksService = {
         const driversWithHashedPasswords = await hashUsers(mockDrivers);
 
         const inserted = await insertOrThrow(() => usersRepository.insertMany(driversWithHashedPasswords));
+        logger.info(`Mocks: se insertaron ${inserted.length} repartidores`);
         return inserted.length;
     },
 
@@ -96,12 +98,14 @@ export const mocksService = {
         if (customers.length === 0) {
             await mocksService.seedUsers(3, USER_ROLES.CUSTOMER);
             customers = await usersRepository.getAll({ role: USER_ROLES.CUSTOMER });
+            logger.info("Mocks: no había customers, se generaron 3 automáticamente para crear los pedidos");
         }
 
         const customerIds = customers.map((customer) => customer._id);
         const mockOrders = generateMockOrders(validQty, customerIds);
 
         const inserted = await insertOrThrow(() => ordersRepository.insertMany(mockOrders));
+        logger.info(`Mocks: se insertaron ${inserted.length} pedidos`);
         return inserted.length;
     },
 
@@ -112,12 +116,14 @@ export const mocksService = {
         if (orders.length === 0) {
             await mocksService.seedOrders(3);
             orders = await ordersRepository.getAll();
+            logger.info("Mocks: no había pedidos, se generaron 3 automáticamente para crear las entregas");
         }
 
         let drivers = await usersRepository.getAll({ role: USER_ROLES.DRIVER });
         if (drivers.length === 0) {
             await mocksService.seedDrivers(2);
             drivers = await usersRepository.getAll({ role: USER_ROLES.DRIVER });
+            logger.info("Mocks: no había repartidores, se generaron 2 automáticamente para las entregas");
         }
 
         const orderIds = orders.map((order) => order._id);
@@ -125,6 +131,7 @@ export const mocksService = {
         const mockDeliveries = generateMockDeliveries(validQty, orderIds, driverIds);
 
         const inserted = await insertOrThrow(() => deliveriesRepository.insertMany(mockDeliveries));
+        logger.info(`Mocks: se insertaron ${inserted.length} entregas`);
         return inserted.length;
     }
 };
