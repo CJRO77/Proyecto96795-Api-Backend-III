@@ -15,7 +15,13 @@ un módulo de **mocking** para generar datos de prueba, un sistema **centralizad
 - **Winston** + **winston-daily-rotate-file**
 - **swagger-jsdoc** + **swagger-ui-express**
 - **Nodemon**
-- **JavaScript (ES Modules)**
+- **JavaScript (ES Modules)** 
+- **Mocha** | Organiza y ejecuta los tests (`describe`, `it` y los hooks `before`/`beforeEach`/`after`) |
+- **Chai** | Valida los resultados (`expect(...)`) |
+- **Supertest** | Hace las peticiones HTTP a la app de Express, sin abrir un puerto |
+- **cross-env** | Define `NODE_ENV=test` de forma que funcione igual en Windows, Mac y Linux |
+
+
 
 ## Índice
 
@@ -388,7 +394,7 @@ services, repositories y MongoDB) con peticiones HTTP, cubriendo casos exitosos 
 
 | Herramienta | Para qué se usa |
 |---|---|
-| **Mocha** | Organiza y ejecuta los tests (`describe`, `it` y los hooks `before`/`beforeEach`/`after`) |
+| **Mocha** | Organiza y ejecuta los tests (`describe`, `it` y los hooks `before` y `beforeEach`) |
 | **Chai** | Valida los resultados (`expect(...)`) |
 | **Supertest** | Hace las peticiones HTTP a la app de Express, sin abrir un puerto |
 | **cross-env** | Define `NODE_ENV=test` de forma que funcione igual en Windows, Mac y Linux |
@@ -399,7 +405,8 @@ La app se importa desde `src/app.js`, que exporta la aplicación **sin levantar 
 ### Preparar el entorno de testing (una sola vez)
 
 Los tests **necesitan una base de datos de testing separada**, distinta de la de desarrollo. Puede estar
-en el mismo cluster de Atlas: la base `shipnow-test` se crea sola la primera vez que se escribe en ella.
+en el mismo cluster de Atlas: la base `shipnow_test` y sus colecciones se crean cuando se
+almacenan datos, siempre que la conexión y los permisos sean correctos.
 
 1. Instalar las dependencias:
    ```bash
@@ -423,31 +430,41 @@ en el mismo cluster de Atlas: la base `shipnow-test` se crea sola la primera vez
 | Variable | Valor | Descripción |
 |---|---|---|
 | `NODE_ENV` | `test` | Activa el modo test: carga `.env.test` en vez de `.env` y silencia el logger |
-| `MONGODB_URI` | URI con una base **de testing** | El nombre de la base tiene que contener `test` (por ejemplo `shipnow-test`) |
+| `MONGODB_URI` | URI con una base **de testing** | El nombre de la base tiene que contener `test` (por ejemplo `shipnow_test`) |
 | `PORT` | `3001` | Lo exige la validación de configuración; los tests no abren puertos |
 
 ### Ejecutar los tests
 
 ```bash
 npm test                           
-npm test -- --grep "Orders API"      
+npm test -- --grep "Orders API"  
+
+```
+### Estructura de testing en ShipNow
+
+```text
+       ├── tests/                         ← suite de tests funcionales (Mocha + Chai + Supertest).
+       │   ├── setup.js                   ← conexión, limpieza global y seguro anti-desastres.
+       │   ├── helpers.js                 ← fábricas de datos de prueba y aserciones del contrato.
+       │   ├── tools/swagger-coverage.js  ← verificación opcional de cobertura de Swagger.
+       │   └── *.test.js                  ← users, products, orders, deliveries, mocks, logger, docs, general, server-errors.
 ```
 
-### Módulos cubiertos
+### Módulos cubiertos y resultado de las pruebas
 
-| Archivo | Cubre | Tests |
-|---|---|---|
-| `users.test.js` | Listar, crear, consultar, actualizar y eliminar usuarios 
-| `products.test.js` | CRUD de productos y cálculo automático de `status` según stock 
-| `orders.test.js` | Listar (con filtro), crear, consultar por ID y actualizar estado 
-| `deliveries.test.js` | Listar (con filtro), crear (con y sin repartidor), consultar y actualizar estado 
-| `mocks.test.js` | Los 4 `GET` de datos simulados y `POST /seed` (incluida la generación en cascada) 
-| `logger.test.js` | Endpoint `/api/logger-test` y configuración del logger 
-| `docs.test.js` | Ruta `/api/docs` y coherencia entre la documentación y la API real 
-| `general.test.js` | Rutas inexistentes 
-| `server-errors.test.js` | Errores `500` inesperados en cada endpoint que toca la base 
+| Archivo | Cubre |
+|---|---|
+| `users.test.js` | Listar, crear, consultar, actualizar y eliminar usuarios |
+| `products.test.js` | CRUD de productos y cálculo automático de `status` según stock |
+| `orders.test.js` | Listar (con filtro), crear, consultar por ID y actualizar estado |
+| `deliveries.test.js` | Listar (con filtro), crear (con y sin repartidor), consultar y actualizar estado |
+| `mocks.test.js` | Los 4 `GET` de datos simulados y `POST /seed` (incluida la generación en cascada) |
+| `logger.test.js` | Endpoint `/api/logger-test` y configuración del logger |
+| `docs.test.js` | Ruta `/api/docs` y coherencia entre la documentación y la API real |
+| `general.test.js` | Pruebas generales y rutas inexistentes |
+| `server-errors.test.js` | Errores `500` inesperados en los endpoints que interactúan con la base de datos |
 
-| | **Total 197 passing** | **Actualizar con el resultado de test** |
+**Resultado de la ejecución:** 197 passing (26s).
 
 ### Qué valida cada test
 
@@ -472,9 +489,8 @@ incorrecto), cantidades inválidas en mocks, rutas inexistentes y caídas de la 
 
 - **Datos controlados:** cada test crea lo que necesita con las fábricas de `tests/helpers.js`
   (`createUser`, `createOrder`, etc.). Nunca se usan datos cargados a mano.
-- **Limpieza:** un hook global `beforeEach` (en `tests/setup.js`) vacía las colecciones antes de **cada**
-  test. Así ningún test depende de otro ni del orden de ejecución, y la suite se puede correr muchas veces
-  seguidas. Al terminar, la base queda vacía.
+- **Limpieza:** un hook global `beforeEach` (en `tests/setup.js`) vacía las colecciones antes de cada test.
+    Así ningún test depende de otro ni del orden de ejecución, y la suite se puede correr muchas veces seguidas.
 - **Seguro anti-desastres:** como los tests borran datos, la suite **se niega a arrancar** si `NODE_ENV` no
   es `test` o si el nombre de la base no contiene `test` (o es exactamente `test`, la base por defecto de
   MongoDB). Eso impide que, por un error de configuración, se vacíe la base de desarrollo.
@@ -486,7 +502,7 @@ incorrecto), cantidades inválidas en mocks, rutas inexistentes y caídas de la 
 | Mensaje | Qué hacer |
 |---|---|
 | `[tests] NODE_ENV es "...", no "test"` | Correr los tests con `npm test`, no con `npx mocha` directo |
-| `[tests] La base de datos "..." no es válida para testing` | Revisar `MONGODB_URI` en `.env.test`: el nombre de la base debe contener `test` (por ejemplo `shipnow-test`) |
+| `[tests] La base de datos "..." no es válida para testing` | Revisar `MONGODB_URI` en `.env.test`: el nombre de la base debe contener `test` (por ejemplo `shipnow_test`) |
 | `Falta la variable de entorno obligatoria` | Crear `.env.test` a partir de `.env.test.example` |
 | Timeout en el hook `before` | Revisar la URI y que tu IP esté permitida en Atlas (Network Access) |
 
