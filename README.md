@@ -12,22 +12,22 @@ un módulo de **mocking** para generar datos de prueba, un sistema **centralizad
 - **MongoDB** + **Mongoose**
 - **dotenv**
 - **bcryptjs**
+- **Multer** | Recibe, valida y almacena archivos enviados mediante `multipart/form-data` |
 - **Winston** + **winston-daily-rotate-file**
 - **swagger-jsdoc** + **swagger-ui-express**
 - **Nodemon**
-- **JavaScript (ES Modules)** 
+- **JavaScript (ES Modules)**
 - **Mocha** | Organiza y ejecuta los tests (`describe`, `it` y los hooks `before`/`beforeEach`/`after`) |
 - **Chai** | Valida los resultados (`expect(...)`) |
 - **Supertest** | Hace las peticiones HTTP a la app de Express, sin abrir un puerto |
 - **cross-env** | Define `NODE_ENV=test` de forma que funcione igual en Windows, Mac y Linux |
-
-
 
 ## Índice
 
 - [Configuración y ejecución](#configuración-y-ejecución)
 - [Documentación interactiva (Swagger)](#documentación-interactiva-swagger)
 - [Endpoints](#endpoints)
+- [Carga de archivos (Multer)](#carga-de-archivos-multer)
 - [Formato de las respuestas](#formato-de-las-respuestas)
 - [Manejo de errores](#manejo-de-errores)
 - [Mocking](#mocking)
@@ -95,15 +95,15 @@ La documentación está agrupada por **tags**:
 
 | Tag | Qué documenta |
 |---|---|
-| **Users** | Registro, consulta, actualización y baja de usuarios |
+| **Users** | Registro, consulta, actualización, baja de usuarios y carga de documentos |
 | **Products** | Catálogo de productos (CRUD) |
 | **Orders** | Alta y consulta de pedidos, y cambio de estado |
-| **Deliveries** | Alta y consulta de entregas, y cambio de estado |
+| **Deliveries** | Alta y consulta de entregas, cambio de estado y carga de comprobantes |
 | **Mocks** | Herramienta de desarrollo: generación de datos de prueba |
 | **Logger** | Herramienta de desarrollo: validación del sistema de logs |
 
 Cada endpoint documenta método HTTP, ruta, descripción, parámetros de ruta y de query, body esperado,
-respuesta exitosa y los errores que la API puede devolver. Hay **schemas reutilizables** para usuario,
+respuesta exitosa y los errores que la API puede devolver. Los endpoints de carga documentan el envío `multipart/form-data`. Hay **schemas reutilizables** para usuario,
 producto, pedido, item de pedido, entrega, respuesta exitosa, respuesta de error y los bodies de entrada.
 
 ### Dónde está la configuración
@@ -157,6 +157,7 @@ La referencia completa, con ejemplos y respuestas, está en Swagger (`/api/docs`
 | POST | `/` | Registra un usuario (password hasheado con bcrypt, rol siempre `USER`) |
 | PUT | `/:id` | Actualiza un usuario |
 | DELETE | `/:id` | Elimina un usuario |
+| POST | `/:id/documents` | Carga un documento del usuario (`multipart/form-data`, campo `document`, tipo `USER_DOCUMENT` o `DRIVER_LICENSE`) |
 
 ### Productos (`/api/products`)
 | Método | Ruta | Descripción |
@@ -182,6 +183,7 @@ La referencia completa, con ejemplos y respuestas, está en Swagger (`/api/docs`
 | GET | `/:id` | Obtiene una entrega por id |
 | POST | `/` | Crea una entrega para un pedido existente, con repartidor opcional |
 | PATCH | `/:id/status` | Cambia el estado de la entrega |
+| POST | `/:id/proof` | Carga el comprobante de entrega (`multipart/form-data`, campo `proof`) |
 
 ### Mocking (`/api/mocks`)
 | Método | Ruta | Descripción |
@@ -199,6 +201,57 @@ La referencia completa, con ejemplos y respuestas, está en Swagger (`/api/docs`
 
 ---
 
+## Carga de archivos (Multer)
+
+ShipNow permite asociar documentos a usuarios y comprobantes a entregas mediante solicitudes
+`multipart/form-data`. La recepción y el almacenamiento físico se gestionan con **Multer**.
+
+### Reglas de carga
+
+- Formatos admitidos: **PDF, JPEG y PNG**.
+- Tamaño máximo: **5 MB** por archivo.
+- Se valida el MIME type, la extensión y la firma interna del archivo.
+- Cada archivo recibe un nombre único generado con `randomUUID()`.
+- Los metadatos se guardan en MongoDB; el contenido del archivo se almacena en el servidor.
+- Los archivos se organizan en `uploads/users/` y `uploads/deliveries/proofs/`.
+- La carpeta `uploads/` está excluida de Git mediante `.gitignore`; no se deben subir documentos reales al repositorio.
+
+### Cargar un documento de usuario
+
+```
+POST /api/users/:id/documents
+```
+
+Enviar el body como `multipart/form-data` con estos campos:
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `document` | Archivo | PDF, JPEG o PNG de hasta 5 MB |
+| `type` | Texto | `USER_DOCUMENT` o `DRIVER_LICENSE` |
+
+La API verifica que el usuario exista y que el tipo de documento sea válido. Luego guarda los metadatos
+del archivo en el usuario correspondiente.
+
+### Cargar un comprobante de entrega
+
+```
+POST /api/deliveries/:id/proof
+```
+
+Enviar el body como `multipart/form-data` con:
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `proof` | Archivo | PDF, JPEG o PNG de hasta 5 MB |
+
+La API verifica que la entrega exista y asocia a ella los metadatos del comprobante.
+
+### Metadatos almacenados
+
+MongoDB guarda el nombre original, nombre generado, ruta relativa, MIME type, tamaño y fecha de carga.
+El archivo físico **no** se almacena dentro de MongoDB.
+
+---
 
 ## Manejo de errores
 
@@ -246,6 +299,12 @@ formato inválido (`CastError` de Mongoose → `400 INVALID_ID`) y un body que n
 | `INVALID_ORDER_STATUS` | 400 | El estado de pedido enviado (en el body o en el filtro) no es válido |
 | `ORDER_ALREADY_DELIVERED` | 409 | Se intenta modificar un pedido ya entregado |
 | `DELIVERY_NOT_FOUND` | 404 | Una entrega no existe |
+| `FILE_REQUIRED` | 400 | No se envió el archivo obligatorio |
+| `INVALID_FILE_TYPE` | 400 | El archivo no es PDF, JPEG o PNG válido (se valida MIME, extensión y firma interna) |
+| `FILE_TOO_LARGE` | 413 | El archivo supera el límite de 5 MB |
+| `INVALID_FILE_FIELD` | 400 | El nombre del campo de archivo no es el esperado |
+| `INVALID_DOCUMENT_TYPE` | 400 | El tipo de documento de usuario no es válido |
+| `UPLOAD_ERROR` | 500 | Ocurrió un error al procesar o asociar el archivo |
 | `INVALID_DELIVERY_STATUS` | 400 | El estado de entrega enviado (en el body o en el filtro) no es válido |
 | `DRIVER_NOT_AVAILABLE` | 409 | El repartidor indicado no está disponible |
 | `INVALID_MOCK_AMOUNT` | 400 | `qty` no es un entero positivo, o supera el máximo permitido (100) |
@@ -282,6 +341,15 @@ POST  /api/orders   customer inexistente                                  → 40
 GET   /api/orders?status=en camino                                        → 400 INVALID_ORDER_STATUS
 PATCH /api/orders/:id/status   Body: { "status": "en camino" }            → 400 INVALID_ORDER_STATUS
 PATCH /api/orders/:id/status   (pedido ya DELIVERED)                      → 409 ORDER_ALREADY_DELIVERED
+```
+
+**Carga de archivos**
+```
+POST /api/users/:id/documents sin archivo                          → 400 FILE_REQUIRED
+POST /api/users/:id/documents con tipo inválido                    → 400 INVALID_DOCUMENT_TYPE
+POST /api/deliveries/:id/proof con entrega inexistente             → 404 DELIVERY_NOT_FOUND
+Archivo que no es PDF/JPEG/PNG válido                              → 400 INVALID_FILE_TYPE
+Archivo de más de 5 MB                                             → 413 FILE_TOO_LARGE
 ```
 
 **Entregas**
@@ -344,7 +412,6 @@ De menor a mayor gravedad: `debug` → `http` → `info` → `warning` → `erro
 | `warning` | Errores de negocio esperados (400, 404, 409) y rutas inexistentes. |
 | `error` | Errores de negocio graves (500) y cualquier error inesperado (incluye el `stack trace`). |
 | `fatal` | Solo cuando falla la conexión a MongoDB al arrancar; el proceso se corta después de loguearlo. |
-
 
 ### Comportamiento según el entorno
 
@@ -436,25 +503,28 @@ almacenan datos, siempre que la conexión y los permisos sean correctos.
 ### Ejecutar los tests
 
 ```bash
-npm test                           
-npm test -- --grep "Orders API"  
-
+npm test
+npm test -- --grep "Orders API"
 ```
+
 ### Estructura de testing en ShipNow
 
 ```text
+       ├── fixtures/                      ← archivos de prueba utilizados en los tests (PDF de ejemplo para simular cargas con Multer).
        ├── tests/                         ← suite de tests funcionales (Mocha + Chai + Supertest).
        │   ├── setup.js                   ← conexión, limpieza global y seguro anti-desastres.
        │   ├── helpers.js                 ← fábricas de datos de prueba y aserciones del contrato.
        │   ├── tools/swagger-coverage.js  ← verificación opcional de cobertura de Swagger.
        │   └── *.test.js                  ← users, products, orders, deliveries, mocks, logger, docs, general, server-errors.
+       │   └── *.uploads.test.js          ← Carga de documentos y comprobantes, validación de archivos obligatorios, tipos de documento y existencia de entregas.
+
 ```
 
 ### Módulos cubiertos y resultado de las pruebas
 
 | Archivo | Cubre |
 |---|---|
-| `users.test.js` | Listar, crear, consultar, actualizar y eliminar usuarios |
+| `users.test.js` | Listar, crear, consultar, actualizar, eliminar usuarios y validar operaciones de documentos |
 | `products.test.js` | CRUD de productos y cálculo automático de `status` según stock |
 | `orders.test.js` | Listar (con filtro), crear, consultar por ID y actualizar estado |
 | `deliveries.test.js` | Listar (con filtro), crear (con y sin repartidor), consultar y actualizar estado |
@@ -463,8 +533,9 @@ npm test -- --grep "Orders API"
 | `docs.test.js` | Ruta `/api/docs` y coherencia entre la documentación y la API real |
 | `general.test.js` | Pruebas generales y rutas inexistentes |
 | `server-errors.test.js` | Errores `500` inesperados en los endpoints que interactúan con la base de datos |
+| `uploads.test.js` | Carga de documentos y comprobantes, archivo ausente, tipo de documento inválido y entrega inexistente |
 
-**Resultado de la ejecución:** 197 passing (26s).
+**Resultado de la ejecución:** 203 passing (22s), incluyendo las 6 pruebas de carga de archivos.
 
 ### Qué valida cada test
 
@@ -490,12 +561,11 @@ incorrecto), cantidades inválidas en mocks, rutas inexistentes y caídas de la 
 - **Datos controlados:** cada test crea lo que necesita con las fábricas de `tests/helpers.js`
   (`createUser`, `createOrder`, etc.). Nunca se usan datos cargados a mano.
 - **Limpieza:** un hook global `beforeEach` (en `tests/setup.js`) vacía las colecciones antes de cada test.
-    Así ningún test depende de otro ni del orden de ejecución, y la suite se puede correr muchas veces seguidas.
+  Así ningún test depende de otro ni del orden de ejecución, y la suite se puede correr muchas veces seguidas.
 - **Seguro anti-desastres:** como los tests borran datos, la suite **se niega a arrancar** si `NODE_ENV` no
   es `test` o si el nombre de la base no contiene `test` (o es exactamente `test`, la base por defecto de
   MongoDB). Eso impide que, por un error de configuración, se vacíe la base de desarrollo.
 - **Logger:** durante los tests queda silenciado y no crea la carpeta `logs/`.
-
 
 ### Problemas frecuentes
 
@@ -544,6 +614,7 @@ ShipNow/
 │   ├── config/
 │   │   ├── env.config.js
 │   │   ├── database.config.js
+│   │   ├── multer.config.js
 │   │   └── logger.config.js
 │   │
 │   ├── constants/
@@ -583,6 +654,8 @@ ShipNow/
 │   └── server.js
 │
 ├── logs/                          ← se genera en tiempo de ejecución, no se sube a Git
+├── uploads/                       ← almacena los archivos cargados; excluida de Git
+├── *.log                          ← archivos de log; excluidos de Git
 ├── .env.example
 ├── .gitignore
 ├── package.json
@@ -622,6 +695,13 @@ consulta normal puede filtrarlo hacia afuera.
 - **`mocks.service.js`**: valida `qty`, hashea passwords, resuelve la cascada de dependencias y traduce
   cualquier falla de MongoDB a un `MOCK_GENERATION_ERROR` controlado.
 
+### ¿Por qué centralizar la carga de archivos con Multer?
+
+La configuración de `src/config/multer.config.js` concentra el almacenamiento, los nombres únicos,
+los formatos admitidos, el límite de tamaño y las validaciones de los archivos. Los Services verifican
+las reglas del negocio (por ejemplo, que exista el usuario o la entrega) y guardan únicamente los
+metadatos en MongoDB. Así se separa el archivo físico de la información que necesita consultar la API.
+
 ### ¿Por qué un middleware global de errores y un logger centralizado?
 
 Antes, cada controller armaba su propia respuesta de error a mano y el proyecto tenía `console.log`
@@ -648,9 +728,8 @@ internamente: se complementan.
 
 ## Próximas etapas
 
-- Comercios, Comprobantes y Documentos
+- Comercios y gestión ampliada de documentos
 - Autenticación y Autorización
-- Testing automatizado
 - Seguridad y Escalabilidad
 
 ## Autor

@@ -44,6 +44,7 @@ const fileFormat = winston.format.combine(
 
 // En modo test no se instancia el transporte de archivos: DailyRotateFile crea el
 // archivo (y uno de auditoría) apenas se construye, aunque el logger esté silenciado.
+
 const isTest = config.nodeEnv === "test";
 
 const errorFileTransport = isTest ? null : new DailyRotateFile({
@@ -57,7 +58,9 @@ const errorFileTransport = isTest ? null : new DailyRotateFile({
 const logger = winston.createLogger({
     levels: customLevels.levels,
     level: config.nodeEnv === "production" ? "info" : "debug",
+
     // Durante los tests el logger se silencia: no ensucia la consola ni crea archivos en logs/.
+
     silent: isTest,
     transports: [
         new winston.transports.Console({ format: consoleFormat }),

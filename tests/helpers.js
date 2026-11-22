@@ -102,6 +102,7 @@ export const expectError = (res, statusCode, errorCode) => {
     expect(res.body).to.have.property("status", "error");
     expect(res.body).to.have.property("error", errorCode);
     expect(res.body.message).to.be.a("string").and.not.equal("");
+    
     // Nunca se filtra información técnica interna.
     expect(res.body).to.not.have.property("stack");
 };

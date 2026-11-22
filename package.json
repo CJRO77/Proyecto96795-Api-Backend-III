@@ -7,8 +7,6 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "test": "cross-env NODE_ENV=test mocha --file tests/setup.js \"tests/**/*.test.js\""
-
-    
   },
   "keywords": [],
   "author": "",
@@ -19,6 +17,7 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "mongoose": "^9.9.5",
+    "multer": "^2.5.0",
     "swagger-jsdoc": "^6.3.0",
     "swagger-ui-express": "^5.0.1",
     "winston": "^3.19.0",

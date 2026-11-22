@@ -1,3 +1,6 @@
+
+import { unlink } from "node:fs/promises";
+import path from "node:path";
 import { deliveriesRepository } from "../repositories/deliveries.repository.js";
 import { ordersRepository } from "../repositories/orders.repository.js";
 import { usersRepository } from "../repositories/users.repository.js";
@@ -7,7 +10,8 @@ import logger from "../config/logger.config.js";
 
 // Valida que el estado de la entrega sea uno de los permitidos.
 
-const isValidDeliveryStatus = (status) => Object.values(DELIVERY_STATUS).includes(status);
+const isValidDeliveryStatus = (status) =>
+    Object.values(DELIVERY_STATUS).includes(status);
 
 export const deliveriesService = {
 
@@ -21,6 +25,7 @@ export const deliveriesService = {
                     `status recibido: "${status}". Valores permitidos: ${Object.values(DELIVERY_STATUS).join(", ")}`
                 );
             }
+
             filters.status = status;
         }
 
@@ -42,18 +47,18 @@ export const deliveriesService = {
             throw new CustomError("VALIDATION_ERROR", "order es obligatorio");
         }
 
-        // Regla de negocio: una entrega siempre pertenece a un pedido que existe.
+// Una entrega siempre pertenece a un pedido existente.
 
         const existingOrder = await ordersRepository.getById(order);
+
         if (!existingOrder) {
             throw new CustomError("ORDER_NOT_FOUND", `order: ${order}`);
         }
 
         let status = DELIVERY_STATUS.PENDING;
 
-        // El repartidor es opcional. Si viene, tiene que existir, tener rol DRIVER
-        // y estar disponible; recién ahí la entrega nace asignada.
-        
+// El repartidor es opcional. Si viene, debe existir, tener rol DRIVER y estar disponible.
+
         if (driver) {
             const existingDriver = await usersRepository.getById(driver);
 
@@ -62,7 +67,10 @@ export const deliveriesService = {
             }
 
             if (existingDriver.role !== USER_ROLES.DRIVER) {
-                throw new CustomError("INVALID_USER_ROLE", `driver: ${driver} (rol: ${existingDriver.role})`);
+                throw new CustomError(
+                    "INVALID_USER_ROLE",
+                    `driver: ${driver} (rol: ${existingDriver.role})`
+                );
             }
 
             if (existingDriver.isAvailable === false) {
@@ -94,8 +102,55 @@ export const deliveriesService = {
         const delivery = await deliveriesService.getDeliveryById(id);
 
         const updatedDelivery = await deliveriesRepository.update(id, { status });
+
         logger.info(`Entrega ${id}: estado ${delivery.status} → ${status}`);
 
         return updatedDelivery;
+    },
+
+// Carga y asocia el comprobante a una entrega.
+
+    addDeliveryProof: async (id, file) => {
+        if (!file) {
+            throw new CustomError("FILE_REQUIRED");
+        }
+
+        try {
+            await deliveriesService.getDeliveryById(id);
+
+            const proofData = {
+                originalName: file.originalname,
+                fileName: file.filename,
+                path: path.relative(process.cwd(), file.path).split(path.sep).join("/"),
+                mimeType: file.mimetype,
+                size: file.size,
+                uploadedAt: new Date()
+            };
+
+            const updatedDelivery = await deliveriesRepository.update(id, {
+                proof: proofData
+            });
+
+            if (!updatedDelivery) {
+                throw new CustomError("DELIVERY_NOT_FOUND");
+            }
+
+            logger.info(`Comprobante asociado a la entrega (id: ${id})`);
+
+            return updatedDelivery;
+
+        } catch (error) {
+            await unlink(file.path).catch(() => {});
+
+            if (error instanceof CustomError) {
+                throw error;
+            }
+
+            logger.error(
+                `Error al asociar comprobante a la entrega (id: ${id}): ${error.message}`
+            );
+
+            throw new CustomError("UPLOAD_ERROR");
+        }
     }
 };

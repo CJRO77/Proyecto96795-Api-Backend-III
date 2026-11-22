@@ -1,7 +1,43 @@
 import mongoose from "mongoose";
-import { USER_ROLES } from "../constants/index.js";
+import {
+    USER_ROLES,
+    USER_DOCUMENT_TYPES
+} from "../constants/index.js";
 
 // Definición del esquema de usuario
+
+const userDocumentSchema = new mongoose.Schema({
+    originalName: {
+        type: String,
+        required: true
+    },
+    fileName: {
+        type: String,
+        required: true
+    },
+    path: {
+        type: String,
+        required: true
+    },
+    mimeType: {
+        type: String,
+        required: true
+    },
+    size: {
+        type: Number,
+        required: true
+    },
+    type: {
+        type: String,
+        enum: Object.values(USER_DOCUMENT_TYPES),
+        required: true
+    },
+    uploadedAt: {
+        type: Date,
+        default: Date.now
+    }
+});
+
 
 const userSchema = new mongoose.Schema({
 
@@ -35,7 +71,12 @@ const userSchema = new mongoose.Schema({
     isAvailable: {
         type: Boolean,
         default: true
-    }
+    },
+
+    documents: {
+    type: [userDocumentSchema],
+    default: []
+}
 
 });
 

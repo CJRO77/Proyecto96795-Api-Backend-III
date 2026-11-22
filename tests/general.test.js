@@ -3,6 +3,8 @@ import request from "supertest";
 import app from "../src/app.js";
 import { expectError } from "./helpers.js";
 
+// Pruebas generales para rutas inexistentes y métodos no definidos
+
 
 describe("Rutas inexistentes", () => {
     it("GET a una ruta que no existe responde 404 ROUTE_NOT_FOUND", async () => {

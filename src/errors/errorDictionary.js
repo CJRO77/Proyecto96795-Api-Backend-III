@@ -85,8 +85,32 @@ export const ERROR_DICTIONARY = Object.freeze({
     // Rutas y servidor
 
     ROUTE_NOT_FOUND: {
-        statusCode: 404,
+        statusCode: 404, 
         message: "La ruta solicitada no existe"
+    },
+    FILE_REQUIRED: {
+    statusCode: 400,
+    message: "Debes adjuntar un archivo"
+    },
+    INVALID_FILE_TYPE: {
+    statusCode: 400,
+    message: "El formato del archivo no está permitido"
+    },
+    FILE_TOO_LARGE: {
+    statusCode: 413,
+    message: "El archivo supera el tamaño máximo permitido de 5 MB"
+    },
+    INVALID_FILE_FIELD: {
+    statusCode: 400,
+    message: "El campo utilizado para enviar el archivo no es válido"
+    },
+   INVALID_DOCUMENT_TYPE: {
+    statusCode: 400,
+    message: "El tipo de documento especificado no es válido"
+    },
+   UPLOAD_ERROR: {
+    statusCode: 500,
+    message: "No se pudo completar la carga del archivo"
     },
     INTERNAL_SERVER_ERROR: {
         statusCode: 500,

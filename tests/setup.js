@@ -40,8 +40,13 @@ assertSafeTestEnvironment();
 // Hooks globales (aplican a TODOS los tests de la suite)
 
 before(async () => {
+    console.log("1. Iniciando conexión con MongoDB...");
     await mongoose.connect(config.mongoUri);
+    console.log("2. Conexión con MongoDB establecida.");
+
+    console.log("3. Iniciando limpieza de la base de datos...");
     await cleanDatabase();
+    console.log("4. Base de datos limpia.");
 });
 
 // Cada test arranca con la base vacía: ninguno depende de otro ni del orden de ejecución.

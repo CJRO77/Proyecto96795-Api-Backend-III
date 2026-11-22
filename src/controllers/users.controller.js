@@ -36,3 +36,19 @@ export const deleteUser = asyncHandler(async (req, res) => {
     await usersService.deleteUser(req.params.id);
     res.status(200).json({ status: "success", message: "Usuario eliminado correctamente" });
 });
+
+
+export const uploadUserDocument = asyncHandler(async (req, res) => {
+
+    const updatedUser = await usersService.addUserDocument(
+        req.params.id,
+        req.file,
+        req.body.type
+    );
+
+    res.status(201).json({
+        status: "success",
+        message: "Documento cargado y asociado correctamente",
+        payload: updatedUser
+    });
+});

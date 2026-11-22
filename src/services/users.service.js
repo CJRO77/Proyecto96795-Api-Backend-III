@@ -1,8 +1,10 @@
 import bcrypt from "bcryptjs";
 import { usersRepository } from "../repositories/users.repository.js";
-import { USER_ROLES } from "../constants/index.js";
+import { USER_ROLES, USER_DOCUMENT_TYPES } from "../constants/index.js";
 import { CustomError } from "../errors/CustomError.js";
 import logger from "../config/logger.config.js";
+import { unlink } from "node:fs/promises";
+import path from "node:path";
 
 // Controlador para manejar la lógica de negocio relacionada con los usuarios.
 
@@ -24,6 +26,8 @@ export const usersService = {
         return user;
     },
 
+ // Función para crear un nuevo usuario con validación de datos y manejo de errores.
+
     createUser: async (userData) => {
         const { firstName, lastName, email, password } = userData;
 
@@ -39,7 +43,7 @@ export const usersService = {
 
         const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
-        // nadie se autoasigna ADMIN al registrarse
+ // nadie se autoasigna ADMIN al registrarse
         
         const newUser = await usersRepository.create({
             firstName,
@@ -55,6 +59,8 @@ export const usersService = {
         return newUser;
     },
 
+// Función para actualizar un usuario existente con validación de datos y manejo de errores.
+
     updateUser: async (id, updateData) => {
         await usersService.getUserById(id);
 
@@ -67,6 +73,71 @@ export const usersService = {
 
         return updatedUser;
     },
+
+ // Función para asociar un documento a un usuario existente con validación de datos y manejo de errores.
+
+
+    addUserDocument: async (id, file, type) => {
+
+        if (!file) {
+        throw new CustomError("FILE_REQUIRED");
+        }
+
+        if (!Object.values(USER_DOCUMENT_TYPES).includes(type)) {
+        await unlink(file.path).catch(() => {});
+        throw new CustomError("INVALID_DOCUMENT_TYPE");
+       }
+
+        try {
+
+// Primero verificamos que exista el usuario.
+
+        await usersService.getUserById(id);
+
+        // Preparamos los datos que guardaremos en MongoDB.
+
+        const documentData = {
+            originalName: file.originalname,
+            fileName: file.filename,
+            path: path.relative(process.cwd(), file.path).split(path.sep).join("/"),
+            mimeType: file.mimetype,
+            size: file.size,
+            type,
+            uploadedAt: new Date()
+        };
+
+ // Guardamos los metadatos en el usuario.
+
+        const updatedUser = await usersRepository.addDocument(
+            id,
+            documentData
+        );
+
+        if (!updatedUser) {
+            throw new CustomError("USER_NOT_FOUND");
+        }
+
+        logger.info(`Documento asociado al usuario (id: ${id})`);
+
+        return updatedUser;
+
+    } catch (error) {
+
+ // Si falla la asociación, eliminamos el archivo físico.
+
+        await unlink(file.path).catch(() => {});
+
+        if (error instanceof CustomError) {
+            throw error;
+        }
+
+        logger.error(`Error al asociar documento al usuario (id: ${id}): ${error.message}`);
+
+        throw new CustomError("UPLOAD_ERROR");
+    }
+},
+
+// Función para eliminar un usuario existente con validación de datos y manejo de errores.
 
     deleteUser: async (id) => {
         await usersService.getUserById(id);

@@ -39,3 +39,8 @@ export const DELIVERY_STATUS = Object.freeze({
 export const MOCK_LIMITS = Object.freeze({
     MAX_ITEMS: 100
 });
+
+export const USER_DOCUMENT_TYPES = Object.freeze({
+    USER_DOCUMENT: "USER_DOCUMENT",
+    DRIVER_LICENSE: "DRIVER_LICENSE"
+});

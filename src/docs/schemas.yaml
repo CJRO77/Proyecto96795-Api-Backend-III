@@ -76,6 +76,12 @@ components:
             - INVALID_ID
             - ROUTE_NOT_FOUND
             - INTERNAL_SERVER_ERROR
+            - FILE_REQUIRED
+            - INVALID_FILE_TYPE
+            - FILE_TOO_LARGE
+            - INVALID_FILE_FIELD
+            - INVALID_DOCUMENT_TYPE
+            - UPLOAD_ERROR
           example: ORDER_NOT_FOUND
         message:
           type: string

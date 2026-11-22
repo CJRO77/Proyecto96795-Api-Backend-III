@@ -36,5 +36,21 @@ export const usersRepository = {
 
     delete: async (id) => {
         return await UserModel.findByIdAndDelete(id);
-    }
+    },
+
+    addDocument: async (id, documentData) =>
+        await UserModel.findByIdAndUpdate(
+              id,
+        {
+            $push: {
+                documents: documentData
+            }
+        },
+        {
+            returnDocument: "after",
+            runValidators: true
+        }
+    ).select(DEFAULT_PROJECTION)
+
 };
+

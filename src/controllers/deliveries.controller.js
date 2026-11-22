@@ -30,3 +30,17 @@ export const updateDeliveryStatus = asyncHandler(async (req, res) => {
         payload: updatedDelivery
     });
 });
+
+
+export const uploadDeliveryProof = asyncHandler(async (req, res) => {
+    const updatedDelivery = await deliveriesService.addDeliveryProof(
+        req.params.id,
+        req.file
+    );
+
+    res.status(201).json({
+        status: "success",
+        message: "Comprobante de entrega cargado correctamente",
+        payload: updatedDelivery
+    });
+});
