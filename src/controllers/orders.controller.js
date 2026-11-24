@@ -3,9 +3,19 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 
 // Controladores para manejar las solicitudes relacionadas con los pedidos (orders).
 
+
 export const getOrders = asyncHandler(async (req, res) => {
-    const orders = await ordersService.getAllOrders({ status: req.query.status });
-    res.status(200).json({ status: "success", payload: orders });
+    const orders = await ordersService.getAllOrders({
+        status: req.query.status,
+        page: req.query.page === undefined ? 1 : Number(req.query.page),
+        limit: req.query.limit === undefined ? 10 : Number(req.query.limit)
+    });
+
+    res.status(200).json({
+        status: "success",
+        payload: orders.orders,
+        pagination: orders.pagination
+    });
 });
 
 export const getOrderById = asyncHandler(async (req, res) => {

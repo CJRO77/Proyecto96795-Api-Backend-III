@@ -11,6 +11,8 @@ import { httpLogger } from "./middlewares/httpLogger.js";
 import { normalizeBody } from "./middlewares/normalizeBody.js";
 import { notFoundHandler } from "./middlewares/notFoundHandler.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
+import healthRouter from "./routes/health.routes.js";
+import { config } from "./config/env.config.js";
 
 // Configuración de la aplicación Express.
 
@@ -19,13 +21,18 @@ const app = express();
 app.use(express.json());
 app.use(normalizeBody);
 app.use(httpLogger);
-
+app.use("/health", healthRouter);
 app.use("/api/products", productsRouter);
 app.use("/api/users", usersRouter);
 app.use("/api/orders", ordersRouter);
 app.use("/api/deliveries", deliveriesRouter);
-app.use("/api/mocks", mocksRouter);
-app.use("/api/logger-test", loggerTestRouter);
+
+// Rutas internas disponibles solamente en desarrollo y test.
+
+if (config.nodeEnv !== "production") {
+  app.use("/api/mocks", mocksRouter);
+  app.use("/api/logger-test", loggerTestRouter);
+}
 
 // Documentación interactiva (Swagger UI). Va antes de los middlewares de error.
 

@@ -1,0 +1,60 @@
+
+paths:
+  /health:
+    get:
+      summary: Verificar el estado de salud de la API
+      description: >
+        Endpoint de monitoreo que informa el estado de la API,
+        el entorno de ejecución, el tiempo de actividad y el estado
+        de conexión con MongoDB. No expone credenciales ni datos sensibles.
+      tags:
+        - Health
+      responses:
+        "200":
+          description: API saludable y base de datos conectada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+                  environment:
+                    type: string
+                    example: production
+                  uptime:
+                    type: number
+                    format: float
+                    example: 29.66
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2026-11-24T13:02:01.108Z"
+                  database:
+                    type: string
+                    example: connected
+        "503":
+          description: Servicio no disponible o base de datos desconectada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: unhealthy
+                  environment:
+                    type: string
+                    example: production
+                  uptime:
+                    type: number
+                    format: float
+                    example: 29.66
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2026-11-24T13:02:01.108Z"
+                  database:
+                    type: string
+                    example: disconnected

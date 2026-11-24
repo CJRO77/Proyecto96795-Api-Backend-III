@@ -8,3 +8,12 @@ logs/
 # Archivos cargados por Multer
 
 uploads/
+
+# Archivos generados por pruebas y herramientas
+
+coverage/
+.DS_Store
+
+# Scripts auxiliares locales
+
+test-mongo-connection.js

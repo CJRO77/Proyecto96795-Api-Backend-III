@@ -15,8 +15,38 @@ const isValidDeliveryStatus = (status) =>
 
 export const deliveriesService = {
 
-    getAllDeliveries: async ({ status } = {}) => {
+
+    getAllDeliveries: async ({ status, page = 1, limit = 10 } = {}) => {
         const filters = {};
+
+        // Validar que page sea un número entero mayor o igual a 1.
+
+        if (!Number.isInteger(page) || page < 1) {
+            throw new CustomError(
+                "VALIDATION_ERROR",
+                "page debe ser un entero mayor o igual a 1"
+            );
+        }
+
+        // Validar que limit sea un número entero mayor o igual a 1.
+
+        if (!Number.isInteger(limit) || limit < 1) {
+            throw new CustomError(
+                "VALIDATION_ERROR",
+                "limit debe ser un entero mayor o igual a 1"
+            );
+        }
+
+        // Evitar que se soliciten demasiadas entregas en una sola consulta.
+
+        if (limit > 100) {
+            throw new CustomError(
+                "VALIDATION_ERROR",
+                "limit no puede ser mayor a 100"
+            );
+        }
+
+        // Mantener la validación del filtro por estado.
 
         if (status !== undefined) {
             if (!isValidDeliveryStatus(status)) {
@@ -29,11 +59,29 @@ export const deliveriesService = {
             filters.status = status;
         }
 
-        return await deliveriesRepository.getAll(filters);
+        const result = await deliveriesRepository.getAllPaginated(
+            filters,
+            page,
+            limit
+        );
+
+        const totalPages = Math.ceil(result.totalDeliveries / limit);
+
+        return {
+            deliveries: result.deliveries,
+            pagination: {
+                page,
+                limit,
+                totalPages,
+                totalDeliveries: result.totalDeliveries
+            }
+        };
     },
 
     getDeliveryById: async (id) => {
         const delivery = await deliveriesRepository.getById(id);
+
+        // Validar que la entrega exista.
 
         if (!delivery) {
             throw new CustomError("DELIVERY_NOT_FOUND", `id: ${id}`);

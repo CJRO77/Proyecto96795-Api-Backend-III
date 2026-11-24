@@ -12,8 +12,37 @@ const SALT_ROUNDS = 10;
 
 export const usersService = {
 
-    getAllUsers: async () => {
-        return await usersRepository.getAll();
+    getAllUsers: async ({ page = 1, limit = 10 } = {}) => {
+
+    // Validar que page y limit sean números enteros positivos.
+
+    if (!Number.isInteger(page) || page < 1) {
+        throw new CustomError("VALIDATION_ERROR", "page debe ser un entero mayor o igual a 1");
+    }
+
+    if (!Number.isInteger(limit) || limit < 1) {
+        throw new CustomError("VALIDATION_ERROR", "limit debe ser un entero mayor o igual a 1");
+    }
+
+    // Evitar que se soliciten demasiados usuarios en una sola consulta.
+
+    if (limit > 100) {
+        throw new CustomError("VALIDATION_ERROR", "limit no puede ser mayor a 100");
+    }
+
+    const result = await usersRepository.getAllPaginated({}, page, limit);
+
+    const totalPages = Math.ceil(result.totalUsers / limit);
+
+    return {
+        users: result.users,
+        pagination: {
+            page,
+            limit,
+            totalPages,
+            totalUsers: result.totalUsers
+        }
+    };
     },
 
     getUserById: async (id) => {

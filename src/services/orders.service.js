@@ -32,24 +32,56 @@ const validateItems = (items) => {
 
 export const ordersService = {
 
-    getAllOrders: async ({ status } = {}) => {
-        const filters = {};
 
-        if (status !== undefined) {
-            if (!isValidOrderStatus(status)) {
-                throw new CustomError(
-                    "INVALID_ORDER_STATUS",
-                    `status recibido: "${status}". Valores permitidos: ${Object.values(ORDER_STATUS).join(", ")}`
-                );
-            }
-            filters.status = status;
+getAllOrders: async ({ status, page = 1, limit = 10 } = {}) => {
+    const filters = {};
+
+    if (status !== undefined) {
+        if (!isValidOrderStatus(status)) {
+            throw new CustomError(
+                "INVALID_ORDER_STATUS",
+                `status recibido: "${status}". Valores permitidos: ${Object.values(ORDER_STATUS).join(", ")}`
+            );
         }
+        filters.status = status;
+    }
 
-        return await ordersRepository.getAll(filters);
-    },
+    // Validar que page y limit sean números enteros positivos.
+
+    if (!Number.isInteger(page) || page < 1) {
+        throw new CustomError("VALIDATION_ERROR", "page debe ser un entero mayor o igual a 1");
+    }
+
+    if (!Number.isInteger(limit) || limit < 1) {
+        throw new CustomError("VALIDATION_ERROR", "limit debe ser un entero mayor o igual a 1");
+    }
+
+    // Evitar que se soliciten demasiados pedidos en una sola consulta.
+
+    if (limit > 100) {
+        throw new CustomError("VALIDATION_ERROR", "limit no puede ser mayor a 100");
+    }
+
+    const result = await ordersRepository.getAll(filters, page, limit);
+
+    const totalPages = Math.ceil(result.totalOrders / limit);
+
+    return {
+        orders: result.orders,
+        pagination: {
+            page,
+            limit,
+            totalPages,
+            totalOrders: result.totalOrders
+        }
+    };
+},
+
 
     getOrderById: async (id) => {
         const order = await ordersRepository.getById(id);
+
+        // Regla de negocio: si no existe el pedido, se lanza un error.
 
         if (!order) {
             throw new CustomError("ORDER_NOT_FOUND", `id: ${id}`);
@@ -61,11 +93,15 @@ export const ordersService = {
     createOrder: async (orderData) => {
         const { customer, items, deliveryAddress, priority } = orderData;
 
+        // Validaciones de negocio: customer y deliveryAddress son obligatorios, items debe ser un array no vacío con nombre, cantidad y precio válidos, priority es opcional pero si se recibe debe ser uno de los valores permitidos.
+
         if (!customer || !deliveryAddress) {
             throw new CustomError("VALIDATION_ERROR", "customer y deliveryAddress son obligatorios");
         }
 
         validateItems(items);
+
+        // Validar que el priority recibido sea uno de los valores permitidos.
 
         if (priority !== undefined && !Object.values(DELIVERY_PRIORITY).includes(priority)) {
             throw new CustomError(
@@ -110,7 +146,7 @@ export const ordersService = {
         const order = await ordersService.getOrderById(id);
 
         // Regla de negocio: un pedido entregado queda cerrado.
-        
+
         if (order.status === ORDER_STATUS.DELIVERED) {
             throw new CustomError("ORDER_ALREADY_DELIVERED", `id: ${id}`);
         }

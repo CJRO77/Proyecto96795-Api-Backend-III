@@ -1,3 +1,4 @@
+
 import { expect } from "chai";
 import request from "supertest";
 import app from "../src/app.js";
@@ -10,7 +11,7 @@ import {
   INVALID_ID,
 } from "./helpers.js";
 
-// Función para generar un body de usuario válido, con posibilidad de sobrescribir campos
+// Función para generar un body de usuario válido, con posibilidad de sobrescribir campos.
 
 const validUserBody = (overrides = {}) => ({
   firstName: "Ana",
@@ -21,7 +22,9 @@ const validUserBody = (overrides = {}) => ({
 });
 
 describe("Users API", () => {
+
   describe("GET /api/users", () => {
+
     it("devuelve un arreglo vacío si no hay usuarios", async () => {
       const res = await request(app).get("/api/users");
 
@@ -50,9 +53,76 @@ describe("Users API", () => {
         expect(user).to.not.have.property("__v");
       });
     });
+
+    it("devuelve los usuarios separados en páginas sin repetir registros", async () => {
+      for (let i = 0; i < 12; i++) {
+        await createUser();
+      }
+
+      const page1 = await request(app).get("/api/users?page=1");
+      const page2 = await request(app).get("/api/users?page=2");
+
+      expectSuccess(page1, 200);
+      expectSuccess(page2, 200);
+
+      expect(page1.body.payload).to.have.lengthOf(10);
+      expect(page2.body.payload).to.have.lengthOf(2);
+
+      const idsPage1 = page1.body.payload.map((user) => user._id);
+      const idsPage2 = page2.body.payload.map((user) => user._id);
+
+      idsPage1.forEach((id) => {
+        expect(idsPage2).to.not.include(id);
+      });
+    });
+
+    it("devuelve los metadatos correctos de paginación", async () => {
+      for (let i = 0; i < 12; i++) {
+        await createUser();
+      }
+
+      const res = await request(app).get("/api/users");
+
+      expectSuccess(res, 200);
+      expect(res.body.pagination).to.deep.equal({
+        page: 1,
+        limit: 10,
+        totalPages: 2,
+        totalUsers: 12,
+      });
+    });
+
+    it("permite establecer una cantidad personalizada de usuarios por página", async () => {
+      for (let i = 0; i < 7; i++) {
+        await createUser();
+      }
+
+      const page1 = await request(app).get("/api/users?page=1&limit=5");
+      const page2 = await request(app).get("/api/users?page=2&limit=5");
+
+      expectSuccess(page1, 200);
+      expectSuccess(page2, 200);
+
+      expect(page1.body.payload).to.have.lengthOf(5);
+      expect(page2.body.payload).to.have.lengthOf(2);
+    });
+
+    it("rechaza valores inválidos de page y limit", async () => {
+      const invalidPage = await request(app).get("/api/users?page=0");
+      const nonNumericPage = await request(app).get("/api/users?page=abc");
+      const invalidLimit = await request(app).get("/api/users?limit=0");
+      const excessiveLimit = await request(app).get("/api/users?limit=101");
+
+      expectError(invalidPage, 400, "VALIDATION_ERROR");
+      expectError(nonNumericPage, 400, "VALIDATION_ERROR");
+      expectError(invalidLimit, 400, "VALIDATION_ERROR");
+      expectError(excessiveLimit, 400, "VALIDATION_ERROR");
+    });
+
   });
 
   describe("POST /api/users", () => {
+
     it("crea un usuario válido: 201, rol USER y sin password en la respuesta", async () => {
       const res = await request(app).post("/api/users").send(validUserBody());
 
@@ -120,9 +190,11 @@ describe("Users API", () => {
       expectError(res, 409, "USER_ALREADY_EXISTS");
       expect(await UserModel.countDocuments()).to.equal(1);
     });
+
   });
 
   describe("GET /api/users/:id", () => {
+
     it("devuelve el usuario pedido", async () => {
       const user = await createUser({ firstName: "Lucía" });
 
@@ -147,9 +219,11 @@ describe("Users API", () => {
 
       expectError(res, 404, "USER_NOT_FOUND");
     });
+
   });
 
   describe("PUT /api/users/:id", () => {
+
     it("actualiza solo los campos enviados", async () => {
       const user = await createUser({ firstName: "Lucía", lastName: "Gómez" });
 
@@ -193,9 +267,11 @@ describe("Users API", () => {
 
       expectError(res, 404, "USER_NOT_FOUND");
     });
+
   });
 
   describe("DELETE /api/users/:id", () => {
+
     it("elimina el usuario", async () => {
       const user = await createUser();
 
@@ -217,5 +293,7 @@ describe("Users API", () => {
 
       expectError(res, 404, "USER_NOT_FOUND");
     });
+
   });
+
 });

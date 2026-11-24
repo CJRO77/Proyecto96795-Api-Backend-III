@@ -10,6 +10,23 @@ export const usersRepository = {
         return await UserModel.find(filters).select(DEFAULT_PROJECTION);
     },
 
+    getAllPaginated: async (filters = {}, page = 1, limit = 10) => {
+    const skip = (page - 1) * limit;
+
+    const users = await UserModel.find(filters)
+        .select(DEFAULT_PROJECTION)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
+
+    const totalUsers = await UserModel.countDocuments(filters);
+
+    return {
+        users,
+        totalUsers
+    };
+    },
+
     getById: async (id) => {
         return await UserModel.findById(id).select(DEFAULT_PROJECTION);
     },

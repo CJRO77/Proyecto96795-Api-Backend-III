@@ -55,6 +55,142 @@ describe("Orders API", () => {
             res.body.payload.forEach((order) => expect(order.status).to.equal("DELIVERED"));
         });
 
+
+        it("devuelve solamente los pedidos correspondientes a la página solicitada", async () => {
+            const customer = await createUser();
+
+            for (let i = 0; i < 12; i++) {
+                await createOrder({ customer: customer._id });
+            }
+
+            const page1 = await request(app)
+                .get("/api/orders")
+                .query({ page: 1, limit: 10 });
+
+            const page2 = await request(app)
+                .get("/api/orders")
+                .query({ page: 2, limit: 10 });
+
+            expectSuccess(page1, 200);
+            expectSuccess(page2, 200);
+
+            expect(page1.body.payload).to.have.lengthOf(10);
+            expect(page2.body.payload).to.have.lengthOf(2);
+
+            const page1Ids = page1.body.payload.map(order => order._id);
+            const page2Ids = page2.body.payload.map(order => order._id);
+
+            expect(page1Ids).to.have.lengthOf(10);
+            expect(page2Ids).to.have.lengthOf(2);
+
+            page2Ids.forEach(id => {
+                expect(page1Ids).to.not.include(id);
+            });
+        });
+
+        it("devuelve los metadatos correctos de paginación", async () => {
+            const customer = await createUser();
+
+            for (let i = 0; i < 12; i++) {
+                await createOrder({ customer: customer._id });
+            }
+
+            const res = await request(app)
+                .get("/api/orders")
+                .query({ page: 1, limit: 10 });
+
+            expectSuccess(res, 200);
+            expect(res.body.pagination).to.deep.equal({
+                page: 1,
+                limit: 10,
+                totalPages: 2,
+                totalOrders: 12
+            });
+        });
+
+        it("permite personalizar la cantidad de pedidos por página", async () => {
+            const customer = await createUser();
+
+            for (let i = 0; i < 7; i++) {
+                await createOrder({ customer: customer._id });
+            }
+
+            const res = await request(app)
+                .get("/api/orders")
+                .query({ page: 1, limit: 5 });
+
+            expectSuccess(res, 200);
+            expect(res.body.payload).to.have.lengthOf(5);
+            expect(res.body.pagination.totalOrders).to.equal(7);
+            expect(res.body.pagination.totalPages).to.equal(2);
+        });
+
+        it("combina correctamente el filtro por estado con la paginación", async () => {
+            const customer = await createUser();
+
+            for (let i = 0; i < 12; i++) {
+                await createOrder({
+                    customer: customer._id,
+                    status: ORDER_STATUS.DELIVERED
+                });
+            }
+
+            await createOrder({
+                customer: customer._id,
+                status: ORDER_STATUS.CREATED
+            });
+
+            const res = await request(app)
+                .get("/api/orders")
+                .query({ status: "DELIVERED", page: 1, limit: 10 });
+
+            expectSuccess(res, 200);
+            expect(res.body.payload).to.have.lengthOf(10);
+            expect(res.body.pagination.totalOrders).to.equal(12);
+            expect(res.body.pagination.totalPages).to.equal(2);
+
+            res.body.payload.forEach(order => {
+                expect(order.status).to.equal("DELIVERED");
+            });
+        });
+
+        it("rechaza una página menor que 1", async () => {
+            const res = await request(app)
+                .get("/api/orders")
+                .query({ page: 0 });
+
+            expectError(res, 400, "VALIDATION_ERROR");
+            expect(res.body.details).to.include("page");
+        });
+
+        it("rechaza una página que no sea un número entero", async () => {
+            const res = await request(app)
+                .get("/api/orders")
+                .query({ page: "abc" });
+
+            expectError(res, 400, "VALIDATION_ERROR");
+            expect(res.body.details).to.include("page");
+        });
+
+        it("rechaza un límite menor que 1", async () => {
+            const res = await request(app)
+                .get("/api/orders")
+                .query({ limit: 0 });
+
+            expectError(res, 400, "VALIDATION_ERROR");
+            expect(res.body.details).to.include("limit");
+        });
+
+        it("rechaza un límite mayor que 100", async () => {
+            const res = await request(app)
+                .get("/api/orders")
+                .query({ limit: 101 });
+
+            expectError(res, 400, "VALIDATION_ERROR");
+            expect(res.body.details).to.include("100");
+        });
+
+
         it("responde 400 INVALID_ORDER_STATUS si el estado del filtro no es válido", async () => {
             const res = await request(app).get("/api/orders").query({ status: "en camino" });
 

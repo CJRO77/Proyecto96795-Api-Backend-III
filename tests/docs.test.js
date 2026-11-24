@@ -40,11 +40,19 @@ describe("Swagger (documentación)", () => {
             expect(swaggerSpecs.servers[0].url).to.equal(`http://localhost:${config.port}`);
         });
 
-        it("agrupa los endpoints en los 6 tags del proyecto", () => {
-            const tagNames = swaggerSpecs.tags.map((tag) => tag.name);
+      it("agrupa los endpoints en los 7 tags del proyecto", () => {
+          const tagNames = swaggerSpecs.tags.map((tag) => tag.name);
 
-            expect(tagNames).to.have.members(["Users", "Products", "Orders", "Deliveries", "Mocks", "Logger"]);
-        });
+          expect(tagNames).to.have.members([
+          "Users",
+          "Products",
+          "Orders",
+          "Deliveries",
+          "Mocks",
+          "Logger",
+          "Health"
+        ]);
+   });
     });
 
     describe("Coherencia entre lo documentado y la API real", () => {

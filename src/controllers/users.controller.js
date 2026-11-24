@@ -5,8 +5,16 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 // Cada función está envuelta en asyncHandler para capturar errores de manera uniforme y pasarlos al middleware de manejo de errores.
 
 export const getUsers = asyncHandler(async (req, res) => {
-    const users = await usersService.getAllUsers();
-    res.status(200).json({ status: "success", payload: users });
+    const users = await usersService.getAllUsers({
+        page: req.query.page === undefined ? 1 : Number(req.query.page),
+        limit: req.query.limit === undefined ? 10 : Number(req.query.limit)
+    });
+
+    res.status(200).json({
+        status: "success",
+        payload: users.users,
+        pagination: users.pagination
+    });
 });
 
 export const getUserById = asyncHandler(async (req, res) => {

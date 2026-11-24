@@ -112,10 +112,10 @@ export const mocksService = {
     seedDeliveries: async (qty) => {
         const validQty = validateQty(qty);
 
-        let orders = await ordersRepository.getAll();
+        let orders = await ordersRepository.getAllUnpaginated();
         if (orders.length === 0) {
             await mocksService.seedOrders(3);
-            orders = await ordersRepository.getAll();
+            orders = await ordersRepository.getAllUnpaginated();
             logger.info("Mocks: no había pedidos, se generaron 3 automáticamente para crear las entregas");
         }
 

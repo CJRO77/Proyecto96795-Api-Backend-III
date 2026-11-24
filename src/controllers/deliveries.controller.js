@@ -3,10 +3,21 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 
 // Controladores para los endpoints de entregas.
 
+
 export const getDeliveries = asyncHandler(async (req, res) => {
-    const deliveries = await deliveriesService.getAllDeliveries({ status: req.query.status });
-    res.status(200).json({ status: "success", payload: deliveries });
+    const deliveries = await deliveriesService.getAllDeliveries({
+        status: req.query.status,
+        page: req.query.page === undefined ? 1 : Number(req.query.page),
+        limit: req.query.limit === undefined ? 10 : Number(req.query.limit)
+    });
+
+    res.status(200).json({
+        status: "success",
+        payload: deliveries.deliveries,
+        pagination: deliveries.pagination
+    });
 });
+
 
 export const getDeliveryById = asyncHandler(async (req, res) => {
     const delivery = await deliveriesService.getDeliveryById(req.params.id);
